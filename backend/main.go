@@ -16,8 +16,6 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-/////////////////////////////////////////////////////////
-
 type ImageColorInfo struct {
 	Path  string
 	Hex   string
@@ -137,7 +135,7 @@ func getDominantImage(k int, method int, img image.Image) string {
 	return res[0].AsString()
 }
 
-func showImgSummary(imagePaths []string) {
+func createImageColorSummary(imagePaths []string) {
 	// Prepare
 	outputDirectory := "./"
 
@@ -182,7 +180,7 @@ func main() {
 		return
 	}
 
-	showImgSummary(imagePaths)
+	createImageColorSummary(imagePaths)
 
 	var buff strings.Builder
 
@@ -211,7 +209,7 @@ func main() {
 	buff.WriteString("<html><body><h1>Ordered Images</h1><table border=\"1\">")
 
 	for _, img := range imageSlice {
-		// fmt.Println(img.Hue, img.Path)
+		fmt.Println(img.Hue, img.Path)
 		buff.WriteString("<tr><td><img src=\"" + img.Path + "\" width=\"200\" border=\"1\"></td>")
 		buff.WriteString(fmt.Sprintf("<td style=\"background-color: %s;width:200px;height:50px;text-align:center;\">Color: %s</td></tr>", img.Hex, img.Hex))
 

@@ -1,6 +1,2 @@
-# Go build files
-*.exe
-go.sum
-
-# Html output files
-*.html
+# Private notes
+tasks.md
