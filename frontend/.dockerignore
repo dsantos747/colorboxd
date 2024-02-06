@@ -1,0 +1,27 @@
+# .dockerignore
+
+# Python virtual environment
+**/venv/
+
+# Editor-specific files
+.vscode/
+.idea/
+
+# Compiled Python files
+*.pyc
+
+# Temporary files
+__pycache__/
+
+# Exclude locally vendored dependencies.
+vendor/
+
+# Exclude "build-time" ignore files.
+.dockerignore
+.gcloudignore
+
+# Exclude git history and configuration.
+.gitignore
+
+# node_modules
+node_modules/
