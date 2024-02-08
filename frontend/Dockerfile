@@ -1,14 +1,25 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Copy package.json and install deps
 COPY package.json .
-RUN npm install --production --silent
+COPY tsconfig.json .
+RUN npm install
 
-# Copy everything except what's in dockerignore
 COPY . .
 
-EXPOSE 8080
+RUN npm run build
 
-CMD [ "npm", "start" ]
+# Production stage
+FROM nginx:1.24 AS production
+
+# Replace default conf with mine
+RUN rm -rf /etc/nginx/conf.d/*
+COPY nginx.conf /etc/nginx/conf.d/
+
+# Copy only the build items
+COPY --from=build /app/build /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
