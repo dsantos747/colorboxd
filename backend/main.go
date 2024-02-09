@@ -2,15 +2,19 @@ package main
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/lucasb-eyer/go-colorful"
@@ -21,6 +25,54 @@ type ImageColorInfo struct {
 	Hex   string
 	Color colorful.Color
 	Hue   float64
+}
+
+type ImageInfo struct {
+	// Width       int    `json:"width"`
+	// Height      int    `json:"height"`
+	// URL         string `json:"url"`
+	DownloadURL string `json:"download_url"`
+}
+
+func getTestImageUrls() ([]string, error) {
+	var imageUrlSlice []string
+
+	endpoint := "https://picsum.photos/v2/list/"
+
+	response, err := http.Get(endpoint)
+	if err != nil {
+		fmt.Printf("Error accessing Picsum API: %v\n", err)
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		fmt.Printf("Error: Unexpected status code %d\n", response.StatusCode)
+		return nil, err
+	}
+
+	res, err := io.ReadAll(response.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %v\n", err)
+		return nil, err
+	}
+
+	var responseData []map[string]interface{}
+	err = json.Unmarshal(res, &responseData)
+	if err != nil {
+		fmt.Printf("Error decoding JSON data: %v\n", err)
+		return nil, err
+	}
+
+	for _, image := range responseData {
+		if url, ok := image["download_url"].(string); ok {
+			imageUrlSlice = append(imageUrlSlice, url)
+			fmt.Println(url)
+
+		}
+	}
+
+	return imageUrlSlice, nil
 }
 
 func getImagePaths(dir string) ([]string, error) {
@@ -52,6 +104,28 @@ func loadImage(path string) (image.Image, error) {
 	defer file.Close()
 
 	img, _, err := image.Decode(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return img, nil
+}
+
+func loadImageFromUrl(url string) (image.Image, error) {
+	response, err := http.Get(url)
+	if err != nil {
+		fmt.Println("Error at this FIRST call")
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		fmt.Println("Error at this second call")
+		return nil, err
+	}
+
+	// Decode the image from the response body
+	img, _, err := image.Decode(response.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +209,16 @@ func getDominantImage(k int, method int, img image.Image) string {
 	return res[0].AsString()
 }
 
+func getImageColorInfo(filePath string, img image.Image) (ImageColorInfo, error) {
+	var method int = prominentcolor.ArgumentNoCropping
+
+	hex := "#" + getDominantImage(3, method, img)
+	color, _ := colorful.Hex(hex)
+	hue, _, _ := color.Hsv()
+
+	return ImageColorInfo{filePath, hex, color, hue}, nil
+}
+
 func createImageColorSummary(imagePaths []string) {
 	// Prepare
 	outputDirectory := "./"
@@ -174,49 +258,84 @@ func createImageColorSummary(imagePaths []string) {
 
 func main() {
 
-	imagePaths, err := getImagePaths("./images/example")
-	if err != nil {
-		fmt.Printf("Error reading images from directory: %v\n", err)
-		return
+	start := time.Now()
+	imageSource := "url"
+	var imageSlice []ImageColorInfo
+
+	if imageSource == "url" {
+		imageUrls, err := getTestImageUrls()
+		if err != nil {
+			fmt.Printf("Error getting test Image URLs: %v\n", err)
+			return
+		}
+
+		for _, url := range imageUrls {
+			// Load the image from URL
+			img, err := loadImageFromUrl(url)
+			if err != nil {
+				log.Printf("Error loading image %s\n", url)
+				log.Println(err)
+				continue
+			}
+
+			imgColorInfo, err := getImageColorInfo(url, img)
+			if err != nil {
+				fmt.Printf("Error getting image color info: %v\n", err)
+				return
+			}
+
+			imageSlice = append(imageSlice, imgColorInfo)
+		}
+
+	} else if imageSource == "local" {
+
+		imageLocalPaths, err := getImagePaths("./images/example")
+		if err != nil {
+			fmt.Printf("Error reading images from directory: %v\n", err)
+			return
+		}
+
+		for _, file := range imageLocalPaths {
+			// Load the image
+			img, err := loadImage(file)
+			if err != nil {
+				log.Printf("Error loading image %s\n", file)
+				log.Println(err)
+				continue
+			}
+
+			imgColorInfo, err := getImageColorInfo(file, img)
+			if err != nil {
+				fmt.Printf("Error getting image color info: %v\n", err)
+				return
+			}
+
+			imageSlice = append(imageSlice, imgColorInfo)
+
+		}
 	}
 
-	createImageColorSummary(imagePaths)
+	// createImageColorSummary(imageLocalPaths)
 
 	var buff strings.Builder
 
-	var imageSlice []ImageColorInfo
-
-	for _, file := range imagePaths {
-		var method int = prominentcolor.ArgumentNoCropping
-		// Load the image
-		img, err := loadImage(file)
-		if err != nil {
-			log.Printf("Error loading image %s\n", file)
-			log.Println(err)
-			continue
-		}
-
-		hex := "#" + getDominantImage(3, method, img)
-		color, _ := colorful.Hex(hex)
-		hue, _, _ := color.Hsv()
-
-		imageSlice = append(imageSlice, ImageColorInfo{file, hex, color, hue})
-
-	}
-
 	slices.SortFunc[[]ImageColorInfo](imageSlice, func(a, b ImageColorInfo) int { return cmp.Compare[float64](a.Hue, b.Hue) })
+
+	duration := time.Since(start)
+
+	fmt.Println(duration)
 
 	buff.WriteString("<html><body><h1>Ordered Images</h1><table border=\"1\">")
 
 	for _, img := range imageSlice {
-		fmt.Println(img.Hue, img.Path)
+		// 	fmt.Println(img.Hue, img.Path)
 		buff.WriteString("<tr><td><img src=\"" + img.Path + "\" width=\"200\" border=\"1\"></td>")
 		buff.WriteString(fmt.Sprintf("<td style=\"background-color: %s;width:200px;height:50px;text-align:center;\">Color: %s</td></tr>", img.Hex, img.Hex))
 
 	}
 
 	buff.WriteString("</table></body><html>")
-	if err = os.WriteFile("./sortedImages.html", []byte(buff.String()), 0644); err != nil {
+	if err := os.WriteFile("./sortedImages.html", []byte(buff.String()), 0644); err != nil {
 		panic(err)
 	}
 
