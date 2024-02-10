@@ -4,3 +4,6 @@ go.sum
 
 # Html output files
 *.html
+
+# Picsum images
+images/picsum/*

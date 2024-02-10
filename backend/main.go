@@ -14,24 +14,23 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-type ImageColorInfo struct {
+type ImageInfo struct {
 	Path  string
 	Hex   string
 	Color colorful.Color
 	Hue   float64
 }
 
-type ImageInfo struct {
-	// Width       int    `json:"width"`
-	// Height      int    `json:"height"`
-	// URL         string `json:"url"`
-	DownloadURL string `json:"download_url"`
+type Image struct {
+	img  image.Image
+	info ImageInfo
 }
 
 type Mode struct{ sort, test string }
@@ -46,7 +45,7 @@ var imageSource *string
 func init() {
 	// Define global parameters to use during dev
 	mode = &Modes.sort
-	imageSource = &ImgSources.url
+	imageSource = &ImgSources.local
 }
 
 func getTestImageUrls() ([]string, error) {
@@ -59,7 +58,7 @@ func getTestImageUrls() ([]string, error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		fmt.Printf("Error: Unexpected status code %d\n", response.StatusCode)
 		return nil, err
 	}
@@ -124,7 +123,7 @@ func loadImage(path string) (image.Image, error) {
 		}
 		defer response.Body.Close()
 
-		if response.StatusCode != 200 {
+		if response.StatusCode != http.StatusOK {
 			return nil, err
 		}
 		file = response.Body
@@ -141,7 +140,55 @@ func loadImage(path string) (image.Image, error) {
 	return img, nil
 }
 
-func outputColorRange(colorRange []prominentcolor.ColorItem) string {
+func loadImageConcurrent(path string, wg *sync.WaitGroup, imageChan chan<- Image) {
+	defer wg.Done()
+
+	img, err := loadImage(path)
+	if err != nil {
+		fmt.Printf("Error loading image %s: %v\n", path, err)
+		return
+	}
+
+	image := Image{img: img, info: ImageInfo{Path: path}}
+
+	imageChan <- image
+}
+
+func getDominantColor(k int, method int, img image.Image) string {
+	resizeSize := uint(prominentcolor.DefaultSize) // This is a constant
+	bgmasks := prominentcolor.GetDefaultMasks()    // This is a constant
+
+	res, err := prominentcolor.KmeansWithAll(k, img, method, resizeSize, bgmasks)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return res[0].AsString()
+}
+
+func getImageInfo(filePath string, img image.Image) (ImageInfo, error) {
+	var method int = prominentcolor.ArgumentNoCropping // This is a constant
+
+	hex := "#" + getDominantColor(3, method, img)
+	color, _ := colorful.Hex(hex)
+	hue, _, _ := color.Hsv()
+
+	return ImageInfo{filePath, hex, color, hue}, nil
+}
+
+func getImageInfoConcurrent(filePath string, img image.Image, wg *sync.WaitGroup, colorChan chan<- ImageInfo) {
+	defer wg.Done()
+
+	imgColorInfo, err := getImageInfo(filePath, img)
+	if err != nil {
+		fmt.Printf("Error getting image color info for %s: %v\n", filePath, err)
+		return
+	}
+
+	colorChan <- imgColorInfo
+}
+
+func outputColorRange(colorRange []prominentcolor.ColorItem) string { // WILL BE DELETED
 	var buff strings.Builder
 	buff.WriteString("<table><tr>")
 	for _, color := range colorRange {
@@ -151,7 +198,7 @@ func outputColorRange(colorRange []prominentcolor.ColorItem) string {
 	return buff.String()
 }
 
-func processBatch(k int, bitarr []int, img image.Image) string {
+func processBatch(k int, bitarr []int, img image.Image) string { // WILL BE DELETED
 	var buff strings.Builder
 
 	prefix := fmt.Sprintf("K=%d, ", k)
@@ -171,7 +218,7 @@ func processBatch(k int, bitarr []int, img image.Image) string {
 	return buff.String()
 }
 
-func bitInfo(bits int) string {
+func bitInfo(bits int) string { // WILL BE DELETED
 	list := make([]string, 0, 4)
 	// random seed or Kmeans++
 	if prominentcolor.IsBitSet(bits, prominentcolor.ArgumentSeedRandom) {
@@ -201,30 +248,7 @@ func bitInfo(bits int) string {
 	return strings.Join(list, ", ")
 }
 
-func getDominantColor(k int, method int, img image.Image) string {
-	// resizeSize := uint(prominentcolor.DefaultSize)
-	resizeSize := uint(40)
-	bgmasks := prominentcolor.GetDefaultMasks()
-
-	res, err := prominentcolor.KmeansWithAll(k, img, method, resizeSize, bgmasks)
-	if err != nil {
-		log.Println(err)
-	}
-
-	return res[0].AsString()
-}
-
-func getImageColorInfo(filePath string, img image.Image) (ImageColorInfo, error) {
-	var method int = prominentcolor.ArgumentNoCropping
-
-	hex := "#" + getDominantColor(3, method, img)
-	color, _ := colorful.Hex(hex)
-	hue, _, _ := color.Hsv()
-
-	return ImageColorInfo{filePath, hex, color, hue}, nil
-}
-
-func createImageColorSummary(imagePaths []string) {
+func createImageColorSummary(imagePaths []string) { // WILL BE DELETED
 	// Prepare
 	outputDirectory := "./"
 
@@ -247,7 +271,7 @@ func createImageColorSummary(imagePaths []string) {
 			continue
 		}
 		// Process & html output
-		buff.WriteString("<tr><td><img src=\"" + file + "\" width=\"200\" border=\"1\"></td><td>")
+		buff.WriteString("<tr><td><img src=\"" + file + "\" width=\"http.StatusOK\" border=\"1\"></td><td>")
 		buff.WriteString(processBatch(3, methods, img))
 		buff.WriteString("</td></tr>")
 	}
@@ -276,33 +300,50 @@ func main() {
 	}
 
 	if *mode == Modes.sort {
-		var imageSlice []ImageColorInfo
-		var imgStart time.Time
+		var imageSlice []ImageInfo
+		var images []Image
+		n := len(imagePaths)
+
+		var wg sync.WaitGroup
+		imageChan := make(chan Image, n)
+		colorChan := make(chan ImageInfo, n)
+
 		for _, path := range imagePaths {
-			imgStart = time.Now()
-
-			img, err := loadImage(path)
-			imgUrlTime := time.Since(imgStart)
-			if err != nil {
-				log.Printf("Error loading image %s\n", path)
-				log.Println(err)
-				continue
-			}
-
-			imgColorInfo, err := getImageColorInfo(path, img)
-			imgColorTime := time.Since(imgStart)
-			if err != nil {
-				fmt.Printf("Error getting image color info: %v\n", err)
-				return
-			}
-
-			imageSlice = append(imageSlice, imgColorInfo)
-			fmt.Printf("Time to get url: %s. Time to get color data: %s \n", imgUrlTime.Round(time.Millisecond), (imgColorTime - imgUrlTime).Round(time.Millisecond))
+			wg.Add(1)
+			go loadImageConcurrent(path, &wg, imageChan)
 		}
 
-		slices.SortFunc[[]ImageColorInfo](imageSlice, func(a, b ImageColorInfo) int { return cmp.Compare[float64](a.Hue, b.Hue) })
+		go func() {
+			wg.Wait()
+			close(imageChan)
+		}()
 
-		fmt.Println("Sorted all images, took:", time.Since(start))
+		for img := range imageChan {
+			images = append(images, img)
+		}
+
+		if len(images) != n {
+			fmt.Println("Warning! Images slice length does not match image paths slice length.")
+			return
+		}
+
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go getImageInfoConcurrent(images[i].info.Path, images[i].img, &wg, colorChan)
+		}
+
+		go func() {
+			wg.Wait()
+			close(colorChan)
+		}()
+
+		for imageInfo := range colorChan {
+			imageSlice = append(imageSlice, imageInfo)
+		}
+
+		slices.SortFunc[[]ImageInfo](imageSlice, func(a, b ImageInfo) int { return cmp.Compare[float64](a.Hue, b.Hue) })
+
+		fmt.Printf("Sorted %d images in: %s.\n", n, time.Since(start))
 
 		createHTMLOutput(imageSlice)
 	} else if *mode == Modes.test {
@@ -310,7 +351,7 @@ func main() {
 	}
 }
 
-func createHTMLOutput(imageSlice []ImageColorInfo) {
+func createHTMLOutput(imageSlice []ImageInfo) {
 	var buff strings.Builder
 
 	buff.WriteString("<html><body><h1>Ordered Images</h1><table border=\"1\">")
