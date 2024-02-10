@@ -48,6 +48,29 @@ func init() {
 	imageSource = &ImgSources.local
 }
 
+func AuthUser() {
+	// Access users info with Auth0
+	// If possible, do this only once and pass an auth token around?
+}
+
+func GetUserLists() {
+	// Hit up letterboxd api to get all users lists
+	// Return: id, name, date modified
+}
+
+func SortListById() {
+	// get list images
+	// sort
+	// return a data structure with picture links, sorting number
+}
+
+func WriteSortedList() {
+	// receive list id and sorting info from client
+	// Write sorting info to users list
+}
+
+func getListImagesById() {}
+
 func getTestImageUrls() ([]string, error) {
 	var imageUrlSlice []string
 
@@ -186,103 +209,6 @@ func getImageInfoConcurrent(filePath string, img image.Image, wg *sync.WaitGroup
 	}
 
 	colorChan <- imgColorInfo
-}
-
-func outputColorRange(colorRange []prominentcolor.ColorItem) string { // WILL BE DELETED
-	var buff strings.Builder
-	buff.WriteString("<table><tr>")
-	for _, color := range colorRange {
-		buff.WriteString(fmt.Sprintf("<td style=\"background-color: #%s;width:200px;height:50px;text-align:center;\">#%s %d</td>", color.AsString(), color.AsString(), color.Cnt))
-	}
-	buff.WriteString("</tr></table>")
-	return buff.String()
-}
-
-func processBatch(k int, bitarr []int, img image.Image) string { // WILL BE DELETED
-	var buff strings.Builder
-
-	prefix := fmt.Sprintf("K=%d, ", k)
-	resizeSize := uint(prominentcolor.DefaultSize)
-	bgmasks := prominentcolor.GetDefaultMasks()
-
-	for i := 0; i < len(bitarr); i++ {
-		res, err := prominentcolor.KmeansWithAll(k, img, bitarr[i], resizeSize, bgmasks)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		buff.WriteString("<h3>" + prefix + bitInfo(bitarr[i]) + "<h3>")
-		buff.WriteString(outputColorRange(res))
-	}
-
-	return buff.String()
-}
-
-func bitInfo(bits int) string { // WILL BE DELETED
-	list := make([]string, 0, 4)
-	// random seed or Kmeans++
-	if prominentcolor.IsBitSet(bits, prominentcolor.ArgumentSeedRandom) {
-		list = append(list, "Random seed")
-	} else {
-		list = append(list, "Kmeans++")
-	}
-	// Mean or median
-	if prominentcolor.IsBitSet(bits, prominentcolor.ArgumentAverageMean) {
-		list = append(list, "Mean")
-	} else {
-		list = append(list, "Median")
-	}
-	// LAB or RGB
-	if prominentcolor.IsBitSet(bits, prominentcolor.ArgumentLAB) {
-		list = append(list, "LAB")
-	} else {
-		list = append(list, "RGB")
-	}
-	// Cropping or not
-	if prominentcolor.IsBitSet(bits, prominentcolor.ArgumentNoCropping) {
-		list = append(list, "No cropping")
-	} else {
-		list = append(list, "Cropping center")
-	}
-	// Done
-	return strings.Join(list, ", ")
-}
-
-func createImageColorSummary(imagePaths []string) { // WILL BE DELETED
-	// Prepare
-	outputDirectory := "./"
-
-	var buff strings.Builder
-	buff.WriteString("<html><body><h1>Colors listed in order of dominance: hex color followed by number of entries</h1><table border=\"1\">")
-
-	for _, file := range imagePaths {
-		// Define the differents sets of params
-		methods := []int{
-			prominentcolor.ArgumentAverageMean | prominentcolor.ArgumentNoCropping,
-			prominentcolor.ArgumentNoCropping,
-			prominentcolor.ArgumentDefault,
-		}
-
-		// Load the image
-		img, err := loadImage(file)
-		if err != nil {
-			log.Printf("Error loading image %s\n", file)
-			log.Println(err)
-			continue
-		}
-		// Process & html output
-		buff.WriteString("<tr><td><img src=\"" + file + "\" width=\"http.StatusOK\" border=\"1\"></td><td>")
-		buff.WriteString(processBatch(3, methods, img))
-		buff.WriteString("</td></tr>")
-	}
-
-	// Finalize the html output
-	buff.WriteString("</table></body><html>")
-
-	// And write it to the disk
-	if err := os.WriteFile(outputDirectory+"output.html", []byte(buff.String()), 0644); err != nil {
-		panic(err)
-	}
 }
 
 func main() {
