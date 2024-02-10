@@ -10,7 +10,7 @@ import (
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 )
 
-func createImageColorSummary(imagePaths []string) {
+func CreateImageColorSummary(imagePaths []string) {
 	// Prepare
 	outputDirectory := "./"
 
@@ -26,7 +26,7 @@ func createImageColorSummary(imagePaths []string) {
 		}
 
 		// Load the image
-		img, err := loadImage(file)
+		img, err := LoadImage(file)
 		if err != nil {
 			log.Printf("Error loading image %s\n", file)
 			log.Println(err)

@@ -5,11 +5,11 @@ import "testing"
 func TestLoadImage(t *testing.T) {
 	imageSource = &ImgSources.local
 
-	_, err := loadImage("./images/test/00ff00.png")
+	_, err := LoadImage("./images/test/00ff00.png")
 	if err != nil {
 		t.Errorf("Load valid image 00ff00.png shouldn't error, had error: %v\n", err)
 	}
-	_, err = loadImage("./images/test/invalid.txt")
+	_, err = LoadImage("./images/test/invalid.txt")
 	if err == nil {
 		t.Errorf("Expected error loading invalid.txt; no error occured")
 	}
@@ -21,7 +21,7 @@ func TestGetRedImageInfo(t *testing.T) {
 	var expectedHue float64 = 0
 	expectedHex := "#FF0000"
 
-	redImage, err := loadImage(imagePath)
+	redImage, err := LoadImage(imagePath)
 	if err != nil {
 		t.Errorf("Load valid image 00ff00.png shouldn't error, had error: %v\n", err)
 	}

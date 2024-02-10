@@ -17,9 +17,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
+	"github.com/rs/cors"
+
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/lucasb-eyer/go-colorful"
 )
+
+type RequestBody struct{}
 
 type ImageInfo struct {
 	Path  string
@@ -46,6 +51,38 @@ func init() {
 	// Define global parameters to use during dev
 	mode = &Modes.sort
 	imageSource = &ImgSources.local
+
+	functions.HTTP("HelloAOC", HelloWorld)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", HelloWorld)
+
+	// Use CORS middleware
+	handler := cors.Default().Handler(mux)
+
+	// Start the server
+	http.ListenAndServe(":8080", handler)
+}
+
+// This is a simple tracer bullet function deployed to Cloud Functions
+// Use the same process to create API route endpoints
+func HelloWorld(w http.ResponseWriter, r *http.Request) {
+
+	// var reqBody RequestBody
+	// decoder := json.NewDecoder(r.Body)
+	// err := decoder.Decode(&reqBody)
+	// if err != nil {
+	// 	http.Error(w, "Failed to decode JSON data", http.StatusBadRequest)
+	// 	return
+	// }
+
+	response := map[string]interface{}{
+		"world":    "Hello World!",
+		"darkness": "My old friend",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+	fmt.Fprintf(w, "Hello world!")
 }
 
 func AuthUser() {
@@ -129,7 +166,7 @@ func getImagePaths(dir string) ([]string, error) {
 	return imagePaths, nil
 }
 
-func loadImage(path string) (image.Image, error) {
+func LoadImage(path string) (image.Image, error) {
 	var file io.ReadCloser
 	var err error = nil
 	switch *imageSource {
@@ -166,7 +203,7 @@ func loadImage(path string) (image.Image, error) {
 func loadImageConcurrent(path string, wg *sync.WaitGroup, imageChan chan<- Image) {
 	defer wg.Done()
 
-	img, err := loadImage(path)
+	img, err := LoadImage(path)
 	if err != nil {
 		fmt.Printf("Error loading image %s: %v\n", path, err)
 		return
@@ -273,7 +310,7 @@ func main() {
 
 		createHTMLOutput(imageSlice)
 	} else if *mode == Modes.test {
-		createImageColorSummary(imagePaths)
+		CreateImageColorSummary(imagePaths)
 	}
 }
 
