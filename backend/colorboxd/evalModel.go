@@ -1,4 +1,4 @@
-package main
+package colorboxd
 
 import (
 	"fmt"
@@ -11,21 +11,18 @@ import (
 )
 
 func CreateImageColorSummary(imagePaths []string) {
-	// Prepare
 	outputDirectory := "./"
 
 	var buff strings.Builder
 	buff.WriteString("<html><body><h1>Colors listed in order of dominance: hex color followed by number of entries</h1><table border=\"1\">")
 
 	for _, file := range imagePaths {
-		// Define the differents sets of params
 		methods := []int{
 			prominentcolor.ArgumentAverageMean | prominentcolor.ArgumentNoCropping,
 			prominentcolor.ArgumentNoCropping,
 			prominentcolor.ArgumentDefault,
 		}
 
-		// Load the image
 		img, err := LoadImage(file)
 		if err != nil {
 			log.Printf("Error loading image %s\n", file)
@@ -40,8 +37,6 @@ func CreateImageColorSummary(imagePaths []string) {
 
 	// Finalize the html output
 	buff.WriteString("</table></body><html>")
-
-	// And write it to the disk
 	if err := os.WriteFile(outputDirectory+"output.html", []byte(buff.String()), 0644); err != nil {
 		panic(err)
 	}

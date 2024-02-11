@@ -9,6 +9,8 @@ import (
 )
 
 func main() {
+	// Uncomment to run server to test cloud functions
+
 	port := "8080"
 	if envPort := os.Getenv("PORT"); envPort != "" {
 		port = envPort
