@@ -1,7 +1,7 @@
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom';
 import Nav from './ui/nav';
 
-const Error: React.FC = () => {
+const Error: React.FC<{}> = () => {
   const error = useRouteError();
   console.error(error);
 
