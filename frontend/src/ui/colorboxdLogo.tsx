@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ColorboxdLogo: React.FC<{}> = () => {
+const ColorboxdLogo = () => {
   return (
     <div className='font-mono h-min'>
       <span className='text-pink-500'>c</span>

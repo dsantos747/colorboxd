@@ -1,6 +1,6 @@
 import ColorboxdLogo from '../ui/colorboxdLogo';
 
-const ComingSoon: React.FC<{}> = () => {
+const ComingSoon = () => {
   return (
     <div className='text-center flex flex-col md:flex-row md:justify-between md:grow w-full md:px-20 max-w-screen-lg items-center justify-center text-white'>
       <div className='space-y-10'>

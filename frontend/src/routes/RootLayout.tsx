@@ -5,7 +5,7 @@ const RootLayout = () => {
   return (
     <>
       <Nav />
-      <div className='min-h-screen bg-gray-900 flex flex-col items-center justify-between'>
+      <div className='min-h-screen bg-gray-900 flex flex-col items-center justify-between text-white'>
         <div className='flex grow w-full justify-center'>
           <Outlet />
         </div>

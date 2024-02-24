@@ -1,45 +1,29 @@
-import { useAuth0 } from '@auth0/auth0-react';
-import React from 'react';
-import { Link } from 'react-router-dom';
+import { useContext } from 'react';
+import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import { LoginButton, SignOutButton } from './authButtons';
 import ColorboxdLogo from './colorboxdLogo';
+import { Link } from 'react-router-dom';
 
-type NavItem = {
-  text: string;
-  path: string;
-};
+const Nav = () => {
+  // Theres a glitch where the sign out button stays visible when navigating to home,
+  // but then when you refresh it's back to log in. To make things easier, it's probably
+  // easier to just have a "Get started" button (navigate to users page) and a "sign out"
+  // button (clear auth token) - with the sign out button only visible on the user page
 
-const navEntries: NavItem[] = [
-  { text: 'Home', path: '/' },
-  { text: 'Dashboard', path: '/user' },
-];
-
-const Nav: React.FC<{}> = () => {
-  const { isAuthenticated } = useAuth0();
+  const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
 
   return (
     <nav className='fixed w-screen'>
       <div className='flex justify-between items-center mx-8 h-14'>
-        <div className='text-xl'>
+        <Link to={'/home'} className='text-xl'>
           <ColorboxdLogo />
-        </div>
-        {/* {isAuthenticated && (
-          <ul className='flex mx-8 my-4 gap-3 text-white'>
-            {navEntries.map((item) => {
-              return (
-                <li key={item.path}>
-                  <Link to={item.path}>{item.text}</Link>
-                </li>
-              );
-            })}
-          </ul>
-        )} */}
-        {isAuthenticated && (
+        </Link>
+        {userToken && (
           <div className='text-white'>
             <SignOutButton />
           </div>
         )}
-        {!isAuthenticated && (
+        {!userToken && (
           <div className='text-white'>
             <LoginButton />
           </div>
