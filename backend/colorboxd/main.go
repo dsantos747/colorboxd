@@ -43,6 +43,7 @@ func init() {
 	functions.HTTP("GetLists", HTTPGetLists)
 }
 
+// DEPRECATED
 func HTTPAuthUserGetLists(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Received call to HTTPAuthUserGetLists")
 
@@ -103,8 +104,10 @@ func HTTPAuthUserGetLists(w http.ResponseWriter, r *http.Request) {
 func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Received call to HTTPAuthUser")
 
-	// Handle CORS
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	// Set necessary headers for CORS and cache policy
+	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Cache-Control", "private, max-age=2") // 2 second cache to handle double requests?
 
 	// Read env variables
 	err := godotenv.Load()
@@ -155,15 +158,17 @@ func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
 func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Received call to HTTPGetLists")
 
-	// Handle CORS
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-
 	// Read env variables
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
 		return
 	}
+
+	// Set necessary headers for CORS and cache policy
+	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Cache-Control", "private, max-age=3600")
 
 	// Read authCode from query url - return error if not present
 	accessToken := r.URL.Query().Get("accessToken")
@@ -223,11 +228,9 @@ func GetAccessToken(authCode string) (*AccessTokenResponse, error) {
 func GetMemberId(token string) (*Member, error) {
 	method := "GET"
 	endpoint := fmt.Sprintf("%s/me", os.Getenv("LBOXD_BASEURL"))
-	query := fmt.Sprintf("?client_id=%s&client_secret=%s", os.Getenv("LBOXD_KEY"), os.Getenv("LBOXD_SECRET")) // Handle this in a better way
-	url := endpoint + query
 	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)} // Is this actually necessary?
 
-	response, err := MakeHTTPRequest(method, url, nil, headers)
+	response, err := MakeHTTPRequest(method, endpoint, nil, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +253,7 @@ func GetMemberId(token string) (*Member, error) {
 func GetUserLists(token, id string) (*[]ListSummary, error) {
 	method := "GET"
 	endpoint := fmt.Sprintf("%s/lists", os.Getenv("LBOXD_BASEURL"))
-	query := fmt.Sprintf("?client_id=%s&client_secret=%s&member=%s&memberRelationship=Owner", os.Getenv("LBOXD_KEY"), os.Getenv("LBOXD_SECRET"), id) // Handle client key/secret in a better way
+	query := fmt.Sprintf("?member=%s&memberRelationship=Owner", id)
 	url := endpoint + query
 	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)} // Is this actually necessary?
 
@@ -272,7 +275,7 @@ func GetUserLists(token, id string) (*[]ListSummary, error) {
 	return &lists, nil
 }
 
-func SortListById() {
+func HTTPSortListById() {
 	// get list images
 	getListImagesById()
 	// sort

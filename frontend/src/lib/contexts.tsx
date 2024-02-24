@@ -4,14 +4,6 @@ import { ListSummary, UserToken } from './definitions';
 /**
  * Context for currently authed User and their access token
  */
-// const dummyUserToken: UserToken = {
-//   Token: '',
-//   TokenType: '',
-//   TokenExpiresIn: 3600,
-//   UserId: '',
-//   Username: '',
-//   UserGivenName: '',
-// };
 export type UserTokenContextType = {
   userToken: UserToken | null;
   setUserToken: (userToken: UserToken | null) => void;

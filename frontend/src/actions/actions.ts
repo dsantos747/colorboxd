@@ -68,10 +68,17 @@ async function GetAccessTokenAndUser(authCode: string): Promise<UserToken> {
   return data;
 }
 
-async function GetLists(accessToken: string, userId: string): Promise<ListSummary[]> {
-  // IMPLEMENT CACHING TO REDUCE API CALLS
+async function GetLists(accessToken: string, userId: string, refresh: boolean = false): Promise<ListSummary[]> {
+  let cacheMode: RequestCache = 'default';
+  if (refresh) {
+    // Ideally, use no-store - but not sure how to handle that server side
+    cacheMode = 'reload';
+  }
 
-  const response = await fetch(`${BACKEND_URL2}GetLists?accessToken=${encodeURIComponent(accessToken)}&userId=${userId}`);
+  const response = await fetch(`${BACKEND_URL2}GetLists?accessToken=${encodeURIComponent(accessToken)}&userId=${userId}`, {
+    cache: cacheMode,
+    credentials: 'include',
+  });
   if (!response.ok) {
     const errorText = `Error code: ${response.status}; message: ${response.statusText}`;
     console.error(errorText);
