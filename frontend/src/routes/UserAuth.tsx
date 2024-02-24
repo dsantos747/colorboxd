@@ -1,6 +1,6 @@
 import { useContext, useEffect } from 'react';
 import { GetAccessTokenAndUser } from '../actions/actions';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import UserContent from './UserContent';
 import Cookies from 'js-cookie';
 import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
@@ -11,6 +11,7 @@ function UserAuth() {
 
   const { userToken, setUserToken } = useContext(UserTokenContext) as UserTokenContextType;
 
+  const navigate = useNavigate();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const authCode = queryParams.get('code');
@@ -38,7 +39,11 @@ function UserAuth() {
         }
       } else {
         if (authCode) {
-          // remove authCode from url if possible
+          // Remove authcode from params
+          const { pathname, search } = location;
+          const updatedQueryParams = new URLSearchParams(search);
+          updatedQueryParams.delete('code');
+          navigate(`${pathname}?${updatedQueryParams.toString()}`);
         }
       }
     };
