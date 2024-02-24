@@ -1,3 +1,6 @@
+# Env
+.env
+
 # Go build files
 *.exe
 go.sum

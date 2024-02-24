@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -18,22 +19,10 @@ import (
 	"time"
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
+	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
+	"github.com/joho/godotenv"
 	"github.com/lucasb-eyer/go-colorful"
 )
-
-type RequestBody struct{}
-
-type ImageInfo struct {
-	Path  string
-	Hex   string
-	Color colorful.Color
-	Hue   float64
-}
-
-type Image struct {
-	img  image.Image
-	info ImageInfo
-}
 
 type Mode struct{ sort, test string }
 type ImgSource struct{ url, local string }
@@ -49,48 +38,238 @@ func init() {
 	mode = &Modes.sort
 	imageSource = &ImgSources.local
 
-	////// HMTL server initialisation
-	// functions.HTTP("HelloAOC", HelloWorld)
-	// mux := http.NewServeMux()
-	// mux.HandleFunc("/", HelloWorld)
-
-	// // Use CORS middleware
-	// handler := cors.Default().Handler(mux)
-
-	// // Start the server
-	// http.ListenAndServe(":8080", handler)
+	functions.HTTP("AuthUserGetLists", HTTPAuthUserGetLists)
+	functions.HTTP("AuthUser", HTTPAuthUser)
+	functions.HTTP("GetLists", HTTPGetLists)
 }
 
-// This is a simple tracer bullet function deployed to Cloud Functions
-// Use the same process to create API route endpoints
-func HelloWorld(w http.ResponseWriter, r *http.Request) {
+func HTTPAuthUserGetLists(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Received call to HTTPAuthUserGetLists")
 
-	// var reqBody RequestBody
-	// decoder := json.NewDecoder(r.Body)
-	// err := decoder.Decode(&reqBody)
-	// if err != nil {
-	// 	http.Error(w, "Failed to decode JSON data", http.StatusBadRequest)
-	// 	return
-	// }
+	// Handle CORS
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 
-	response := map[string]interface{}{
-		"world":    "Hello World!",
-		"darkness": "My old friend",
+	// Read env variables
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		return
 	}
 
+	// Read authCode from query url - return error if not present
+	authCode := r.URL.Query().Get("authCode")
+	if authCode == "" {
+		http.Error(w, "Missing or empty 'authCode' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Get Access Token
+	accessTokenResponse, err := GetAccessToken(authCode)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting access token: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if accessTokenResponse.AccessToken == "" {
+		// NOTE - are we sure we want to error this out? Or just return empty?
+		http.Error(w, "No access token in response", http.StatusInternalServerError)
+		return
+	}
+
+	// Get Member id
+	member, err := GetMemberId(accessTokenResponse.AccessToken)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting member id: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Get User Lists
+	userLists, err := GetUserLists(accessTokenResponse.AccessToken, member.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting user lists: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]any{
+		"token": accessTokenResponse,
+		"user":  member,
+		"lists": userLists,
+	}
+
+	// Return response to client
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-	fmt.Fprintf(w, "Hello world!")
 }
 
-func AuthUser() {
-	// Access users info with Auth0
-	// If possible, do this only once and pass an auth token around?
+func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Received call to HTTPAuthUser")
+
+	// Handle CORS
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+
+	// Read env variables
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		return
+	}
+
+	// Read authCode from query url - return error if not present
+	authCode := r.URL.Query().Get("authCode")
+	if authCode == "" {
+		http.Error(w, "Missing or empty 'authCode' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Get Access Token
+	accessTokenResponse, err := GetAccessToken(authCode)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting access token: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if accessTokenResponse.AccessToken == "" {
+		// NOTE - are we sure we want to error this out? Or just return empty?
+		http.Error(w, "No access token in response", http.StatusInternalServerError)
+		return
+	}
+
+	member, err := GetMemberId(accessTokenResponse.AccessToken)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting member id: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	response := AuthUserResponse{
+		Token:          accessTokenResponse.AccessToken,
+		TokenType:      accessTokenResponse.TokenType,
+		TokenExpiresIn: accessTokenResponse.ExpiresIn,
+		UserId:         member.ID,
+		Username:       member.Username,
+		UserGivenName:  member.GivenName,
+	}
+
+	// Return response to client
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
-func GetUserLists() {
-	// Hit up letterboxd api to get all users lists
-	// Return: id, name, date modified
+func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Received call to HTTPGetLists")
+
+	// Handle CORS
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+
+	// Read env variables
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		return
+	}
+
+	// Read authCode from query url - return error if not present
+	accessToken := r.URL.Query().Get("accessToken")
+	if accessToken == "" {
+		http.Error(w, "Missing or empty 'authCode' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Get Member id
+	userId := r.URL.Query().Get("userId")
+	if err != nil {
+		http.Error(w, "Missing or empty 'userId' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Get User Lists
+	userLists, err := GetUserLists(accessToken, userId)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting user lists: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Return response to client
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(userLists)
+}
+
+func GetAccessToken(authCode string) (*AccessTokenResponse, error) {
+	// Prepare endpoint and body for POST request
+	method := "POST"
+	endpoint := fmt.Sprintf("%s/auth/token", os.Getenv("LBOXD_BASEURL"))
+	formData := url.Values{
+		"grant_type":    {"authorization_code"},
+		"code":          {authCode},
+		"redirect_uri":  {os.Getenv("LBOXD_REDIRECT_URL")},
+		"client_id":     {os.Getenv("LBOXD_KEY")},
+		"client_secret": {os.Getenv("LBOXD_SECRET")},
+	}
+	headers := map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"}
+
+	response, err := MakeHTTPRequest(method, endpoint, strings.NewReader(formData.Encode()), headers)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	// Decode data into struct - handle error cases
+	var responseData AccessTokenResponse
+	err = json.NewDecoder(response.Body).Decode(&responseData)
+	if err != nil {
+		return nil, err
+	}
+
+	return &responseData, nil
+}
+
+func GetMemberId(token string) (*Member, error) {
+	method := "GET"
+	endpoint := fmt.Sprintf("%s/me", os.Getenv("LBOXD_BASEURL"))
+	query := fmt.Sprintf("?client_id=%s&client_secret=%s", os.Getenv("LBOXD_KEY"), os.Getenv("LBOXD_SECRET")) // Handle this in a better way
+	url := endpoint + query
+	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)} // Is this actually necessary?
+
+	response, err := MakeHTTPRequest(method, url, nil, headers)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	var responseData map[string]json.RawMessage
+	if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	var member Member
+	if err = json.Unmarshal(responseData["member"], &member); err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	return &member, nil
+}
+
+func GetUserLists(token, id string) (*[]ListSummary, error) {
+	method := "GET"
+	endpoint := fmt.Sprintf("%s/lists", os.Getenv("LBOXD_BASEURL"))
+	query := fmt.Sprintf("?client_id=%s&client_secret=%s&member=%s&memberRelationship=Owner", os.Getenv("LBOXD_KEY"), os.Getenv("LBOXD_SECRET"), id) // Handle client key/secret in a better way
+	url := endpoint + query
+	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)} // Is this actually necessary?
+
+	response, err := MakeHTTPRequest(method, url, nil, headers)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	var responseData ListsResponse
+	err = json.NewDecoder(response.Body).Decode(&responseData)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	var lists []ListSummary = responseData.Items
+
+	return &lists, nil
 }
 
 func SortListById() {
