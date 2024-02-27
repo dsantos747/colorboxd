@@ -33,7 +33,7 @@ function UserLists() {
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (chosenListIndex !== undefined && userToken && listSummary) {
-      SortList(userToken.Token, listSummary[chosenListIndex].id)
+      SortList(userToken.Token, listSummary[chosenListIndex])
         .then((lwi) => {
           setList(lwi);
         })
@@ -52,29 +52,31 @@ function UserLists() {
         handleFormSubmit(e);
       }}>
       <h2 className='text-lg'>Your lists:</h2>
+      <div className='w-max'>
+        {listSummary?.map((list, ind) => {
+          return (
+            <div key={list.id} className='has-[:checked]:bg-indigo-500 has-[:checked]:bg-opacity-20 w-full py-2 px-2 rounded-lg'>
+              <input
+                type='radio'
+                id={list.id}
+                value={list.id}
+                name='userList'
+                checked={chosenListIndex === ind}
+                onChange={() => setChosenListIndex(ind)}
+                className='hidden peer'
+              />
+              <label htmlFor={list.id} className='cursor-pointer'>
+                {list.name}{' '}
+                <span className='text-xs text-gray-400'>
+                  ({list.filmCount}
+                  {list.filmCount > 1 ? ' entries' : ' entry'})
+                </span>
+              </label>
+            </div>
+          );
+        })}
+      </div>
 
-      {listSummary?.map((list, ind) => {
-        return (
-          <div key={list.id} className='has-[:checked]:bg-indigo-500 has-[:checked]:bg-opacity-20 w-full py-2 px-2 rounded-lg '>
-            <input
-              type='radio'
-              id={list.id}
-              value={list.id}
-              name='userList'
-              checked={chosenListIndex === ind}
-              onChange={() => setChosenListIndex(ind)}
-              className='hidden peer'
-            />
-            <label htmlFor={list.id} className='cursor-pointer'>
-              {list.name}{' '}
-              <span className='text-xs text-gray-400'>
-                ({list.filmCount}
-                {list.filmCount > 1 ? ' entries' : ' entry'})
-              </span>
-            </label>
-          </div>
-        );
-      })}
       <button type='submit'>Submit</button>
     </form>
   );

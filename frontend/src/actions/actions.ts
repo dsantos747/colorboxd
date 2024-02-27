@@ -1,5 +1,5 @@
 import Cookies from 'js-cookie';
-import { AccessTokenResponse, EntryWithImage, ListSummary, UserToken } from '../lib/definitions';
+import { EntryWithImage, List, ListSummary, UserToken } from '../lib/definitions';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const BACKEND_URL2 = process.env.REACT_APP_BACKEND_URL2;
@@ -17,6 +17,7 @@ async function GetAccessTokenAndUser(authCode: string, refresh: boolean = false)
    * IMPORTANT: Caching isn't really working, because a new authCode is being generated each time. This
    * invalidates any method of caching tbh. Might be necessary to:
    * - Upon first attempt, create authCode cookie. Need expiry time, check docs?
+   *             =Apparently, most use 30-60 second expiration times
    * - Next time you try to sign in, need to check if an authcode cookie exists
    *     - If so, directly run this function using the existing authcode
    *     - If not, redirect to sign in page (that then redirects with authCode in url query)
@@ -27,6 +28,7 @@ async function GetAccessTokenAndUser(authCode: string, refresh: boolean = false)
 
   // Fetch access token from backend
   const response = await fetch(`${BACKEND_URL}AuthUser?authCode=${encodeURIComponent(authCode)}`, {
+    method: 'GET',
     cache: cacheMode,
     credentials: 'include',
   });
@@ -45,6 +47,7 @@ async function GetLists(accessToken: string, userId: string, refresh: boolean = 
   let cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
   const response = await fetch(`${BACKEND_URL2}GetLists?accessToken=${encodeURIComponent(accessToken)}&userId=${userId}`, {
+    method: 'GET',
     cache: cacheMode,
     credentials: 'include',
   });
@@ -58,13 +61,11 @@ async function GetLists(accessToken: string, userId: string, refresh: boolean = 
   return data;
 }
 
-async function SortList(accessToken: string, listId: string, refresh: boolean = false): Promise<EntryWithImage[]> {
-  console.log('received request');
-  // This list will fetch the list of images in the list, run them through the sorting process, then return the list of images as well as an array which shows which order they should be in - maybe a map?
-
+async function SortList(accessToken: string, listSummary: ListSummary, refresh: boolean = false): Promise<List> {
   let cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
-  const response = await fetch(`${BACKEND_URL}SortList?accessToken=${encodeURIComponent(accessToken)}&listId=${listId}`, {
+  const response = await fetch(`${BACKEND_URL}SortList?accessToken=${encodeURIComponent(accessToken)}&listId=${listSummary.id}`, {
+    method: 'GET',
     cache: 'reload', // Update this after testing
     credentials: 'include',
   });
@@ -75,14 +76,42 @@ async function SortList(accessToken: string, listId: string, refresh: boolean = 
   }
 
   const data = await response.json();
-
   const entryListWithImages: EntryWithImage[] = data['items'] as any as EntryWithImage[];
+  const list: List = {
+    ...listSummary,
+    entries: entryListWithImages,
+  };
 
-  return entryListWithImages;
+  return list;
 }
 
-function WriteSortedList(accessToken: string, listId: string, sortMap: object) {
+async function WriteSortedList(accessToken: string, list: List, offset: number): Promise<string> {
   // This will send the processed sortMap to the backend. The sortMap tells the backend how we would like to re-sort the list. That should then be written to the user's letterboxd list.
+  console.log('time to write the sorted list');
+
+  const requestBody = {
+    accessToken: accessToken,
+    list: list,
+    offset: offset,
+  };
+
+  const response = await fetch(`${BACKEND_URL2}SortList?accessToken=${encodeURIComponent(accessToken)}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+  if (!response.ok) {
+    const errorText = `Error code: ${response.status}; message: ${response.statusText}`;
+    console.error(errorText);
+    throw new Error(errorText);
+  }
+
+  // const message = await response.json()
+  const message = 'List updated successfully';
+  return message;
 }
 
 export { GetAccessTokenAndUser, GetLists, SortList, WriteSortedList };
