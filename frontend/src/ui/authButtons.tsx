@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 import { useContext } from 'react';
-import { Link, redirect } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
 
 const LoginButton = () => {
@@ -12,17 +12,15 @@ const LoginButton = () => {
 };
 
 const SignOutButton = () => {
-  // Broken
-  // Need to be able to redirect the user back to the home page
-
   const { setUserToken } = useContext(UserTokenContext) as UserTokenContextType;
+  const navigate = useNavigate();
 
   return (
     <button
       onClick={() => {
+        navigate('/');
         Cookies.remove('userToken');
         setUserToken(null);
-        return redirect('/');
       }}
       className='py-2 px-6 h-min rounded-sm bg-red-800'>
       Sign Out

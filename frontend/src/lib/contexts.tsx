@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useState } from 'react';
-import { ListSummary, UserToken } from './definitions';
+import { EntryWithImage, ListSummary, UserToken } from './definitions';
 
 /**
  * Context for currently authed User and their access token
@@ -18,13 +18,25 @@ export const UserTokenProvider: React.FC<{ children: ReactNode }> = ({ children 
 /**
  * Context for currently authed user's lists
  */
-const dummyList: ListSummary = { description: 'test description', filmCount: 1, id: 'test id', name: 'test name', version: 1 };
-export type ListsContextType = {
-  lists: ListSummary[];
-  setLists: (lists: ListSummary[]) => void;
+export type ListSummaryContextType = {
+  listSummary: ListSummary[] | null;
+  setListSummary: (lists: ListSummary[] | null) => void;
 };
-export const ListsContext = createContext<ListsContextType | null>(null);
-export const ListsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [lists, setLists] = useState<ListSummary[]>([dummyList]);
-  return <ListsContext.Provider value={{ lists, setLists }}>{children}</ListsContext.Provider>;
+export const ListSummaryContext = createContext<ListSummaryContextType | null>(null);
+export const ListSummaryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [listSummary, setListSummary] = useState<ListSummary[] | null>(null);
+  return <ListSummaryContext.Provider value={{ listSummary, setListSummary }}>{children}</ListSummaryContext.Provider>;
+};
+
+/**
+ * Context for list currently being processed
+ */
+export type ListContextType = {
+  list: EntryWithImage[] | null;
+  setList: (lists: EntryWithImage[] | null) => void;
+};
+export const ListContext = createContext<ListContextType | null>(null);
+export const ListProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [list, setList] = useState<EntryWithImage[] | null>(null);
+  return <ListContext.Provider value={{ list, setList }}>{children}</ListContext.Provider>;
 };

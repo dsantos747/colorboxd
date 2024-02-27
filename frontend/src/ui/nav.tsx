@@ -15,8 +15,10 @@ const Nav = () => {
   return (
     <nav className='fixed w-screen'>
       <div className='flex justify-between items-center mx-8 h-14'>
-        <Link to={'/home'} className='text-xl'>
-          <ColorboxdLogo />
+        <Link to={'/'} className='text-xl'>
+          <h1>
+            <ColorboxdLogo />
+          </h1>
         </Link>
         {userToken && (
           <div className='text-white'>
