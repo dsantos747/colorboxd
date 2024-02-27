@@ -6,6 +6,7 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
+// The response format from Letterboxd auth/token endpoint
 type AccessTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`
@@ -16,7 +17,7 @@ type AccessTokenResponse struct {
 	EncodedToken string `json:"encodedToken"`
 }
 
-// Letterboxd Member
+// The response format from Letterboxd /me endpoint
 type Member struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName"`
@@ -24,19 +25,7 @@ type Member struct {
 	Username    string `json:"username"`
 }
 
-// Letterboxd Lists
-type ListSummary struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Version     int    `json:"version"`
-	FilmCount   int    `json:"filmCount"`
-	Description string `json:"description"`
-}
-type ListsResponse struct {
-	Cursor string        `json:"cursor"`
-	Items  []ListSummary `json:"items"`
-}
-
+// HTTPAuthUser responds to the client with this format
 type AuthUserResponse struct {
 	Token          string
 	TokenType      string
@@ -45,6 +34,44 @@ type AuthUserResponse struct {
 	UserId         string
 	Username       string
 	UserGivenName  string
+}
+
+// The response format from Letterboxd /lists endpoint
+type ListsResponse struct {
+	Cursor string        `json:"cursor"` // Keep this cursor around - need it to handle cases where user has over 100 lists (king)
+	Items  []ListSummary `json:"items"`
+}
+
+// Summary information about a list. In our case, one of the user's lists
+type ListSummary struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Version     int    `json:"version"`
+	FilmCount   int    `json:"filmCount"`
+	Description string `json:"description"`
+}
+
+// The (partial) response format from Letterboxd list/{id}/entries endpoint
+type ListEntriesResponse struct {
+	EntryID string `json:"entryId"`
+	Film    film   `json:"film"`
+}
+type film struct {
+	Adult              bool     `json:"adult"`
+	ID                 string   `json:"id"`
+	Name               string   `json:"name"`
+	Poster             coverImg `json:"poster"`
+	AdultPoster        coverImg `json:"adultPoster"`
+	PosterCustomisable bool     `json:"posterCustomisable"`
+	ReleaseYear        int      `json:"releaseYear"`
+}
+type coverImg struct {
+	Sizes []imgSize `json:"sizes"`
+}
+type imgSize struct {
+	Height int    `json:"height"`
+	URL    string `json:"url"`
+	Width  int    `json:"width"`
 }
 
 // This is the output format of GetListEntries
@@ -60,47 +87,7 @@ type Entry struct {
 	ImageInfo          ImageInfo
 }
 
-// //// These types are associated with the list/{id}/entries endpoint response
-type GetListEntriesResponse struct {
-	Items []struct {
-		EntryID string `json:"entryId"`
-		Film    Film   `json:"film"`
-	} `json:"items"`
-}
-
-type ListEntriesResponse struct {
-	EntryID string `json:"entryId"`
-	Film    Film   `json:"film"`
-}
-
-type Film struct {
-	Adult              bool     `json:"adult"`
-	ID                 string   `json:"id"`
-	Name               string   `json:"name"`
-	Poster             CoverImg `json:"poster"`
-	AdultPoster        CoverImg `json:"adultPoster"`
-	PosterCustomisable bool     `json:"posterCustomisable"`
-	ReleaseYear        int      `json:"releaseYear"`
-}
-
-type CoverImg struct {
-	Sizes []Size `json:"sizes"`
-}
-
-type Size struct {
-	Height int    `json:"height"`
-	URL    string `json:"url"`
-	Width  int    `json:"width"`
-}
-
-// ////
-
-type SortListResponse struct {
-	Entries  any
-	SortList any // Can do better than "any"
-}
-
-// Image information
+// An images path and colour information
 type ImageInfo struct {
 	Path  string
 	Hex   string
@@ -108,7 +95,19 @@ type ImageInfo struct {
 	Hue   float64
 }
 
+// Holds a loaded image, alongside all information about that film entry
 type Image struct {
 	img  image.Image
 	info Entry
+}
+
+// This is the format of the request body for HTTPWriteList
+type WriteListRequest struct {
+	Token  string          `json:"accessToken"`
+	List   listWithEntries `json:"list"`
+	Offset int             `json:"offset"`
+}
+type listWithEntries struct {
+	ListSummary
+	entries Entry
 }
