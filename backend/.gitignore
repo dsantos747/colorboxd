@@ -10,3 +10,7 @@ go.sum
 
 # Picsum images
 images/picsum/*
+
+# Local WIP file directories
+legacy
+test

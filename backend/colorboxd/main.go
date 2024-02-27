@@ -3,20 +3,18 @@ package colorboxd
 import (
 	"cmp"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
@@ -36,11 +34,12 @@ var imageSource *string
 func init() {
 	// Define global parameters to use during dev
 	mode = &Modes.sort
-	imageSource = &ImgSources.local
+	imageSource = &ImgSources.url
 
 	functions.HTTP("AuthUserGetLists", HTTPAuthUserGetLists)
 	functions.HTTP("AuthUser", HTTPAuthUser)
 	functions.HTTP("GetLists", HTTPGetLists)
+	functions.HTTP("SortList", HTTPSortListById)
 }
 
 // DEPRECATED
@@ -107,7 +106,7 @@ func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
 	// Set necessary headers for CORS and cache policy
 	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
-	w.Header().Set("Cache-Control", "private, max-age=2") // 2 second cache to handle double requests?
+	w.Header().Set("Cache-Control", "private, max-age=3595") // Expire time of token (-5s for safety)
 
 	// Read env variables
 	err := godotenv.Load()
@@ -144,6 +143,7 @@ func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
 	response := AuthUserResponse{
 		Token:          accessTokenResponse.AccessToken,
 		TokenType:      accessTokenResponse.TokenType,
+		TokenRefresh:   accessTokenResponse.RefreshToken,
 		TokenExpiresIn: accessTokenResponse.ExpiresIn,
 		UserId:         member.ID,
 		Username:       member.Username,
@@ -170,10 +170,10 @@ func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Cache-Control", "private, max-age=3600")
 
-	// Read authCode from query url - return error if not present
+	// Read accessToken from query url - return error if not present
 	accessToken := r.URL.Query().Get("accessToken")
 	if accessToken == "" {
-		http.Error(w, "Missing or empty 'authCode' query parameter", http.StatusBadRequest)
+		http.Error(w, "Missing or empty 'accessToken' query parameter", http.StatusBadRequest)
 		return
 	}
 
@@ -275,78 +275,164 @@ func GetUserLists(token, id string) (*[]ListSummary, error) {
 	return &lists, nil
 }
 
-func HTTPSortListById() {
-	// get list images
-	getListImagesById()
-	// sort
-	// return a data structure with picture links, sorting number
+func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Received call to HTTPSortListById")
+
+	// Read env variables
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		return
+	}
+
+	// Set necessary headers for CORS and cache policy
+	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+
+	// Read accessToken from query url - return error if not present
+	accessToken := r.URL.Query().Get("accessToken")
+	if accessToken == "" {
+		http.Error(w, "Missing or empty 'accessToken' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Get List id
+	listId := r.URL.Query().Get("listId")
+	if err != nil {
+		http.Error(w, "Missing or empty 'listId' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Get Entries from List
+	listEntries, err := GetListEntries(accessToken, listId)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting entries from list: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	entriesWithImageInfo, err := processListImages(listEntries)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error processing posters for list entries: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	slices.SortFunc[[]Entry](*entriesWithImageInfo, func(a, b Entry) int { return cmp.Compare[float64](a.ImageInfo.Hue, b.ImageInfo.Hue) })
+
+	response := map[string][]Entry{
+		"items": *entriesWithImageInfo,
+	}
+
+	// Return response to client
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func GetListEntries(token, id string) (*[]Entry, error) {
+	fmt.Println("Got call to GetListEntries for list id", id)
+	method := "GET"
+	endpoint := fmt.Sprintf("%s/list/%s/entries", os.Getenv("LBOXD_BASEURL"), id)
+	query := "?perPage=100"
+	url := endpoint + query
+	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)}
+
+	response, err := MakeHTTPRequest(method, url, nil, headers)
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	// Raw decode
+	var responseData map[string]json.RawMessage
+	if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	// Cast items to type
+	var listEntriesData []ListEntriesResponse
+	if err = json.Unmarshal(responseData["items"], &listEntriesData); err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	// Extract relevant info from each item into []Entry format
+	n := len(listEntriesData)
+	entries := make([]Entry, n)
+	var adultUrl, imgPath string
+	for i, item := range listEntriesData {
+		adultUrl = ""
+		imgPath = item.Film.Poster.Sizes[0].URL
+		if item.Film.Adult {
+			adultUrl = item.Film.AdultPoster.Sizes[0].URL
+			imgPath = adultUrl
+		}
+
+		entries[i] = Entry{
+			EntryID:            item.EntryID,
+			FilmID:             item.Film.ID,
+			Name:               item.Film.Name,
+			ReleaseYear:        item.Film.ReleaseYear,
+			Adult:              item.Film.Adult,
+			PosterCustomisable: item.Film.PosterCustomisable,
+			PosterURL:          item.Film.Poster.Sizes[0].URL,
+			AdultPosterURL:     adultUrl,
+			ImageInfo:          ImageInfo{Path: imgPath},
+		}
+	}
+
+	return &entries, nil
+}
+
+func processListImages(listEntries *[]Entry) (*[]Entry, error) {
+	var entrySlice []Entry
+	var images []Image
+	n := len(*listEntries)
+
+	var wg sync.WaitGroup
+	imageChan := make(chan Image, n)
+	colorChan := make(chan Entry, n)
+
+	for _, entry := range *listEntries {
+		wg.Add(1)
+		go loadImageConcurrent(entry, &wg, imageChan)
+	}
+
+	go func() {
+		wg.Wait()
+		close(imageChan)
+	}()
+
+	for img := range imageChan {
+		images = append(images, img)
+	}
+
+	if len(images) != n {
+		err := errors.New("Error: Images slice length does not match image paths slice length.")
+		return nil, err
+	}
+
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go getImageInfoConcurrent(images[i], &wg, colorChan)
+	}
+
+	go func() {
+		wg.Wait()
+		close(colorChan)
+	}()
+
+	for entry := range colorChan {
+		entrySlice = append(entrySlice, entry)
+	}
+
+	return &entrySlice, nil
 }
 
 func WriteSortedList() {
 	// receive list id and sorting info from client
 	// Write sorting info to users list
-}
-
-func getListImagesById() {
-	// return slice of Image (or ImageInfo?)
-}
-
-func getTestImageUrls() ([]string, error) {
-	var imageUrlSlice []string
-
-	response, err := http.Get("https://picsum.photos/v2/list/")
-	if err != nil {
-		fmt.Printf("Error accessing Picsum API: %v\n", err)
-		return nil, err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		fmt.Printf("Error: Unexpected status code %d\n", response.StatusCode)
-		return nil, err
-	}
-
-	res, err := io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
-		return nil, err
-	}
-
-	var responseData []map[string]interface{}
-	err = json.Unmarshal(res, &responseData)
-	if err != nil {
-		fmt.Printf("Error decoding JSON data: %v\n", err)
-		return nil, err
-	}
-
-	for _, image := range responseData {
-		if url, ok := image["download_url"].(string); ok {
-			imageUrlSlice = append(imageUrlSlice, url)
-		}
-	}
-
-	return imageUrlSlice, nil
-}
-
-func getImagePaths(dir string) ([]string, error) {
-	var imagePaths []string
-
-	var fileTypes = []string{".png", ".jpg", ".jpeg"}
-
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range files {
-		if !file.IsDir() {
-			if slices.Contains[[]string](fileTypes, filepath.Ext(file.Name())) {
-				imagePaths = append(imagePaths, filepath.Join(dir, file.Name()))
-			}
-		}
-	}
-
-	return imagePaths, nil
 }
 
 func LoadImage(path string) (image.Image, error) {
@@ -383,134 +469,64 @@ func LoadImage(path string) (image.Image, error) {
 	return img, nil
 }
 
-func loadImageConcurrent(path string, wg *sync.WaitGroup, imageChan chan<- Image) {
+func loadImageConcurrent(entry Entry, wg *sync.WaitGroup, imageChan chan<- Image) {
 	defer wg.Done()
 
-	img, err := LoadImage(path)
+	img, err := LoadImage(entry.ImageInfo.Path)
 	if err != nil {
-		fmt.Printf("Error loading image %s: %v\n", path, err)
+		fmt.Printf("Error loading image %s: %v\n", entry.ImageInfo.Path, err)
 		return
 	}
 
-	image := Image{img: img, info: ImageInfo{Path: path}}
+	image := Image{img: img, info: entry}
 
 	imageChan <- image
 }
 
-func getDominantColor(k int, method int, img image.Image) string {
-	resizeSize := uint(prominentcolor.DefaultSize) // This is a constant
-	bgmasks := prominentcolor.GetDefaultMasks()    // This is a constant
+func getDominantColor(k int, method int, img image.Image) (*string, error) {
+	resizeSize := uint(prominentcolor.DefaultSize)
+	bgmasks := prominentcolor.GetDefaultMasks() // Default masks (black,white or green backgrounds)
+	// bgmasks := []prominentcolor.ColorBackgroundMask{} // No mask
 
 	res, err := prominentcolor.KmeansWithAll(k, img, method, resizeSize, bgmasks)
 	if err != nil {
-		log.Println(err)
+		return nil, err
 	}
 
-	return res[0].AsString()
+	stringResponse := res[0].AsString()
+	// IMPORTANT - here we are choosing only the single most dominant colour. Might be useful to pass the three most dominant colours.
+	// Then, we can round all hue values, and have three sub hue values. If any hues are directly equal, can use the second-most
+	// dominant colour to determine how to sort the images.
+	return &stringResponse, nil
 }
 
-func getImageInfo(filePath string, img image.Image) (ImageInfo, error) {
+func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	var method int = prominentcolor.ArgumentNoCropping // This is a constant
 
-	hex := "#" + getDominantColor(3, method, img)
+	domColor, err := getDominantColor(3, method, img)
+	if err != nil {
+		return nil, err
+	}
+
+	hex := "#" + *domColor
 	color, _ := colorful.Hex(hex)
 	hue, _, _ := color.Hsv()
 
-	return ImageInfo{filePath, hex, color, hue}, nil
+	entry.ImageInfo.Hex = hex
+	entry.ImageInfo.Color = color
+	entry.ImageInfo.Hue = hue
+
+	return &entry, nil
 }
 
-func getImageInfoConcurrent(filePath string, img image.Image, wg *sync.WaitGroup, colorChan chan<- ImageInfo) {
+func getImageInfoConcurrent(image Image, wg *sync.WaitGroup, colorChan chan<- Entry) {
 	defer wg.Done()
 
-	imgColorInfo, err := getImageInfo(filePath, img)
+	imgColorInfo, err := getImageInfo(image.info, image.img)
 	if err != nil {
-		fmt.Printf("Error getting image color info for %s: %v\n", filePath, err)
+		fmt.Printf("Error getting image color info for poster for %s: %v\n", image.info.Name, err)
 		return
 	}
 
-	colorChan <- imgColorInfo
-}
-
-func Run() {
-	start := time.Now()
-	var imagePaths []string
-	var err error = nil
-	if *imageSource == ImgSources.url {
-		imagePaths, err = getTestImageUrls()
-	} else if *imageSource == ImgSources.local {
-		imagePaths, err = getImagePaths("./images/example")
-	}
-	if err != nil {
-		fmt.Printf("Error getting test Image URLs: %v\n", err)
-		return
-	}
-
-	if *mode == Modes.sort {
-		var imageSlice []ImageInfo
-		var images []Image
-		n := len(imagePaths)
-
-		var wg sync.WaitGroup
-		imageChan := make(chan Image, n)
-		colorChan := make(chan ImageInfo, n)
-
-		for _, path := range imagePaths {
-			wg.Add(1)
-			go loadImageConcurrent(path, &wg, imageChan)
-		}
-
-		go func() {
-			wg.Wait()
-			close(imageChan)
-		}()
-
-		for img := range imageChan {
-			images = append(images, img)
-		}
-
-		if len(images) != n {
-			fmt.Println("Warning! Images slice length does not match image paths slice length.")
-			return
-		}
-
-		for i := 0; i < n; i++ {
-			wg.Add(1)
-			go getImageInfoConcurrent(images[i].info.Path, images[i].img, &wg, colorChan)
-		}
-
-		go func() {
-			wg.Wait()
-			close(colorChan)
-		}()
-
-		for imageInfo := range colorChan {
-			imageSlice = append(imageSlice, imageInfo)
-		}
-
-		slices.SortFunc[[]ImageInfo](imageSlice, func(a, b ImageInfo) int { return cmp.Compare[float64](a.Hue, b.Hue) })
-
-		fmt.Printf("Sorted %d images in: %s.\n", n, time.Since(start))
-
-		createHTMLOutput(imageSlice)
-	} else if *mode == Modes.test {
-		CreateImageColorSummary(imagePaths)
-	}
-}
-
-func createHTMLOutput(imageSlice []ImageInfo) {
-	var buff strings.Builder
-
-	buff.WriteString("<html><body><h1>Ordered Images</h1><table border=\"1\">")
-
-	for _, img := range imageSlice {
-
-		buff.WriteString("<tr><td><img src=\"" + img.Path + "\" width=\"200\" border=\"1\"></td>")
-		buff.WriteString(fmt.Sprintf("<td style=\"background-color: %s;width:200px;height:50px;text-align:center;\">Color: %s</td></tr>", img.Hex, img.Hex))
-
-	}
-
-	buff.WriteString("</table></body><html>")
-	if err := os.WriteFile("./sortedImages.html", []byte(buff.String()), 0644); err != nil {
-		panic(err)
-	}
+	colorChan <- *imgColorInfo
 }

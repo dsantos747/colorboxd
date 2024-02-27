@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	colorboxd "github.com/dsantos747/letterboxd_hue_sort/backend/colorboxd"
+	// colorboxd "github.com/dsantos747/letterboxd_hue_sort/backend/colorboxd"
 	"github.com/joho/godotenv"
 )
 
@@ -14,5 +14,4 @@ func main() {
 		return
 	}
 
-	colorboxd.Run()
 }

@@ -5,7 +5,7 @@ import "testing"
 func TestLoadImage(t *testing.T) {
 	imageSource = &ImgSources.local
 
-	_, err := LoadImage("./images/test/00ff00.png")
+	_, err := LoadImage("../images/test/00ff00.png")
 	if err != nil {
 		t.Errorf("Load valid image 00ff00.png shouldn't error, had error: %v\n", err)
 	}
@@ -17,7 +17,8 @@ func TestLoadImage(t *testing.T) {
 
 func TestGetRedImageInfo(t *testing.T) {
 	imageSource = &ImgSources.local
-	imagePath := "./images/test/ff0000.png"
+	imagePath := "../images/test/ff0000.png"
+	entry := Entry{ImageInfo: ImageInfo{Path: imagePath}}
 	var expectedHue float64 = 0
 	expectedHex := "#FF0000"
 
@@ -26,16 +27,16 @@ func TestGetRedImageInfo(t *testing.T) {
 		t.Errorf("Load valid image 00ff00.png shouldn't error, had error: %v\n", err)
 	}
 
-	redImageInfo, err := getImageInfo(imagePath, redImage)
+	redImageInfo, err := getImageInfo(entry, redImage)
 	if err != nil {
 		t.Errorf("Error getting image info: %v\n", err)
 		return
 	}
 
-	if redImageInfo.Hex != expectedHex {
-		t.Errorf("Expected hex %v, computed %v.", expectedHex, redImageInfo.Hex)
+	if redImageInfo.ImageInfo.Hex != expectedHex {
+		t.Errorf("Expected hex %v, computed %v.", expectedHex, redImageInfo.ImageInfo.Hex)
 	}
-	if redImageInfo.Hue != expectedHue {
-		t.Errorf("Expected hue %v, computed %v.", expectedHue, redImageInfo.Hue)
+	if redImageInfo.ImageInfo.Hue != expectedHue {
+		t.Errorf("Expected hue %v, computed %v.", expectedHue, redImageInfo.ImageInfo.Hue)
 	}
 }
