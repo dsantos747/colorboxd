@@ -1,6 +1,7 @@
 package colorboxd
 
 import (
+	"bytes"
 	"cmp"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -36,68 +38,10 @@ func init() {
 	mode = &Modes.sort
 	imageSource = &ImgSources.url
 
-	functions.HTTP("AuthUserGetLists", HTTPAuthUserGetLists)
 	functions.HTTP("AuthUser", HTTPAuthUser)
 	functions.HTTP("GetLists", HTTPGetLists)
 	functions.HTTP("SortList", HTTPSortListById)
-}
-
-// DEPRECATED
-func HTTPAuthUserGetLists(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Received call to HTTPAuthUserGetLists")
-
-	// Handle CORS
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-
-	// Read env variables
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-		return
-	}
-
-	// Read authCode from query url - return error if not present
-	authCode := r.URL.Query().Get("authCode")
-	if authCode == "" {
-		http.Error(w, "Missing or empty 'authCode' query parameter", http.StatusBadRequest)
-		return
-	}
-
-	// Get Access Token
-	accessTokenResponse, err := GetAccessToken(authCode)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting access token: %v", err), http.StatusInternalServerError)
-		return
-	}
-	if accessTokenResponse.AccessToken == "" {
-		// NOTE - are we sure we want to error this out? Or just return empty?
-		http.Error(w, "No access token in response", http.StatusInternalServerError)
-		return
-	}
-
-	// Get Member id
-	member, err := GetMemberId(accessTokenResponse.AccessToken)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting member id: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	// Get User Lists
-	userLists, err := GetUserLists(accessTokenResponse.AccessToken, member.ID)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting user lists: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	response := map[string]any{
-		"token": accessTokenResponse,
-		"user":  member,
-		"lists": userLists,
-	}
-
-	// Return response to client
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	functions.HTTP("WriteList", HTTPWriteList)
 }
 
 func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
@@ -253,7 +197,7 @@ func GetMemberId(token string) (*Member, error) {
 func GetUserLists(token, id string) (*[]ListSummary, error) {
 	method := "GET"
 	endpoint := fmt.Sprintf("%s/lists", os.Getenv("LBOXD_BASEURL"))
-	query := fmt.Sprintf("?member=%s&memberRelationship=Owner", id)
+	query := fmt.Sprintf("?member=%s&memberRelationship=Owner&perPage=100", id)
 	url := endpoint + query
 	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)} // Is this actually necessary?
 
@@ -329,7 +273,6 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetListEntries(token, id string) (*[]Entry, error) {
-	fmt.Println("Got call to GetListEntries for list id", id)
 	method := "GET"
 	endpoint := fmt.Sprintf("%s/list/%s/entries", os.Getenv("LBOXD_BASEURL"), id)
 	query := "?perPage=100"
@@ -430,9 +373,120 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 	return &entrySlice, nil
 }
 
-func WriteSortedList() {
-	// receive list id and sorting info from client
-	// Write sorting info to users list
+func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Received call to HTTPWriteList")
+
+	// Read env variables
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		return
+	}
+
+	// Set necessary headers for CORS
+	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var responseData WriteListRequest
+	err = json.NewDecoder(r.Body).Decode(&responseData)
+	if err != nil {
+		fmt.Println("Here")
+
+		http.Error(w, "Missing or empty 'accessToken' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	listUpdateRequest, err := prepareListUpdateRequest(responseData.List, responseData.Offset, "")
+	if err != nil {
+		http.Error(w, "Error preparing list update request body", http.StatusBadRequest)
+		return
+	}
+
+	message, err := writeListSorting(responseData.AccessToken, responseData.List.ID, *listUpdateRequest)
+	if err != nil {
+		http.Error(w, "Error updating user list", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(message)
+}
+
+// Taking a sorted list, return a ListUpdateRequest, as required by Letterboxd endpoint
+func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod string) (*ListUpdateRequest, error) {
+	request := ListUpdateRequest{Version: list.Version} // , Entries: []listUpdateEntry{{action: "UPDATE", position: 0, newPosition: 4}}
+
+	n := len(list.Entries)
+	updateEntries := make([]listUpdateEntry, n)
+	var newPos, entryId int
+	var err error
+
+	for i, entry := range list.Entries {
+		newPos = (i + offset) % n
+
+		entryId, err = strconv.Atoi(entry.EntryID)
+		if err != nil {
+			fmt.Println("Error parsing entryId to int")
+			return nil, err
+		}
+
+		updateEntries[i] = listUpdateEntry{Action: "UPDATE", Position: entryId, NewPosition: newPos}
+	}
+
+	request.Entries = updateEntries
+
+	return &request, nil
+}
+
+// Send request to Letterboxd endpoint to update list
+func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[]string, error) {
+
+	// Prepare endpoint and body for PATCH request
+	method := "PATCH"
+	endpoint := fmt.Sprintf("%s/list/%s", os.Getenv("LBOXD_BASEURL"), id)
+	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token), "Content-Type": "application/json", "X-HTTP-Method-Override": "PATCH"}
+	body, err := json.Marshal(listUpdateRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := MakeHTTPRequest(method, endpoint, bytes.NewReader(body), headers)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	var responseData ListUpdateResponse
+	if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	var message []string
+	if len(responseData.Messages) != 0 {
+		for _, m := range responseData.Messages {
+			message = append(message, fmt.Sprintf("%s: %s - %s", m.Type, m.Code, m.Title))
+		}
+		errorStr := "The letterboxd API responded with the following errors: " + strings.Join(message, "; ")
+		return &message, errors.New(errorStr)
+	}
+
+	//
+	//
+	// Consider using the ListUpdateMessage type, even for a successful response, to
+	// maintain standard response type between errors and successes.
+	//
+	//
+	message = []string{"List updated successfully"}
+
+	return &message, nil
 }
 
 func LoadImage(path string) (image.Image, error) {

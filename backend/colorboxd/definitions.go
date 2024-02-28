@@ -103,11 +103,34 @@ type Image struct {
 
 // This is the format of the request body for HTTPWriteList
 type WriteListRequest struct {
-	Token  string          `json:"accessToken"`
-	List   listWithEntries `json:"list"`
-	Offset int             `json:"offset"`
+	AccessToken string          `json:"accessToken"`
+	List        ListWithEntries `json:"list"` // This being ListWithEntries (rather than any) is what is causing the error
+	Offset      int             `json:"offset"`
 }
-type listWithEntries struct {
+type ListWithEntries struct {
 	ListSummary
-	entries Entry
+	Entries []Entry `json:"entries"`
+}
+
+// This is the required format for making a PATCH request to letterboxd list/{id} endpoint.
+//
+// Note: This struct only includes parameters we are interested in controlling/modifying
+type ListUpdateRequest struct {
+	Version int               `json:"version"`
+	Entries []listUpdateEntry `json:"entries"`
+}
+type listUpdateEntry struct {
+	Action      string `json:"action"`
+	Position    int    `json:"position"`
+	NewPosition int    `json:"newPosition"`
+}
+
+// This is the response format from a PATCH request to the letterboxd list/{id} endpoint.
+type ListUpdateResponse struct {
+	Messages []ListUpdateMessage `json:"messages"`
+}
+type ListUpdateMessage struct {
+	Type  string `json:"type"`
+	Code  string `json:"code"`
+	Title string `json:"title"`
 }
