@@ -95,7 +95,9 @@ async function WriteSortedList(accessToken: string, list: List, offset: number):
     offset: offset,
   };
 
-  const response = await fetch(`${BACKEND_URL2}SortList?accessToken=${encodeURIComponent(accessToken)}`, {
+  console.log(requestBody);
+
+  const response = await fetch(`${BACKEND_URL2}SortList`, {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -109,8 +111,7 @@ async function WriteSortedList(accessToken: string, list: List, offset: number):
     throw new Error(errorText);
   }
 
-  // const message = await response.json()
-  const message = 'List updated successfully';
+  const message = await response.json();
   return message;
 }
 

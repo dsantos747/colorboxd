@@ -25,7 +25,7 @@ export default function ListPreview({}: Props) {
         .then((message) => {
           console.log(message);
           setStartIndex(0);
-          setList(null);
+          // setList(null);
         })
         .catch((error) => {
           console.error('Error writing sorted list to letterboxd account:', error);
@@ -54,7 +54,8 @@ export default function ListPreview({}: Props) {
             onClick={() => {
               handleSaveList();
             }}
-            className='bg-blue-700 px-3 rounded-sm'>
+            className='bg-blue-700 px-3 rounded-sm'
+            type='button'>
             Save List
           </button>
         </form>
