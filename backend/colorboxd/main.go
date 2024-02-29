@@ -421,27 +421,46 @@ func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
 
 // Taking a sorted list, return a ListUpdateRequest, as required by Letterboxd endpoint
 func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod string) (*ListUpdateRequest, error) {
-	request := ListUpdateRequest{Version: list.Version} // , Entries: []listUpdateEntry{{action: "UPDATE", position: 0, newPosition: 4}}
+	request := ListUpdateRequest{Version: list.Version}
 
-	n := len(list.Entries)
-	updateEntries := make([]listUpdateEntry, n)
-	var newPos, entryId int
-	var err error
-
+	// n := len(list.Entries)
+	currentPositions := make(map[string]int)
+	finishPositions := make(map[string]int)
 	for i, entry := range list.Entries {
-		newPos = (i + offset) % n
-
-		entryId, err = strconv.Atoi(entry.EntryID)
+		initPos, err := strconv.Atoi(entry.EntryID)
 		if err != nil {
 			fmt.Println("Error parsing entryId to int")
 			return nil, err
 		}
+		// endPos := (i - offset) % n // FIX: Offset doesn't seem to be working correctly
 
-		updateEntries[i] = listUpdateEntry{Action: "UPDATE", Position: entryId, NewPosition: newPos}
+		currentPositions[entry.FilmID] = initPos
+		finishPositions[entry.FilmID] = i
+	}
+
+	updateEntries := []listUpdateEntry{}
+
+	for film, finPos := range finishPositions {
+		currPos := currentPositions[film]
+
+		delta := finPos - currPos
+
+		updateEntries = append(updateEntries, listUpdateEntry{Action: "UPDATE", Position: currPos, NewPosition: finPos})
+
+		currentPositions[film] = finPos
+
+		for f, cP := range currentPositions {
+			if f != film {
+				if delta > 0 && currPos < cP && cP <= finPos {
+					currentPositions[f]--
+				} else if delta < 0 && finPos <= cP && cP < currPos {
+					currentPositions[f]++
+				}
+			}
+		}
 	}
 
 	request.Entries = updateEntries
-
 	return &request, nil
 }
 
@@ -461,6 +480,7 @@ func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(response.Status)
 	defer response.Body.Close()
 
 	var responseData ListUpdateResponse
@@ -468,6 +488,8 @@ func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[
 		fmt.Println(err)
 		return nil, err
 	}
+
+	fmt.Println(responseData.Messages)
 
 	var message []string
 	if len(responseData.Messages) != 0 {
