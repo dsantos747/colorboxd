@@ -41,22 +41,24 @@ export default function ListPreview({}: Props) {
 
   return (
     <div>
-      <div className='flex justify-between flex-wrap'>
-        <div>
-          <h3 className='text-lg'>Preview Results</h3>
-          <p className='text-sm'>Hint: Click an item to make it the first in the list.</p>
-        </div>
-        <form className='flex gap-2 h-8'>
-          <select name='sortMethod' id='sortMethod' className='h-8 bg-gray-900 w-max'>
+      <div className=''>
+        {/* <h3 className='text-lg'>Preview Results</h3> */}
+
+        <div className='flex justify-between flex-wrap align-middle items-center'>
+          {/* <form className='flex gap-2 h-8'> */}
+          <p className=''>Hint: Click an item to make it the start of the list.</p>
+          <select name='sortMethod' id='sortMethod' className='h-8 bg-gray-900 w-max ml-auto'>
             {sorts.map((mode) => {
               return (
-                <option key={mode.id} value={mode.id} className='text-xs'>
+                <option key={mode.id} value={mode.id} className=''>
                   {mode.name}
                 </option>
               );
             })}
           </select>
-        </form>
+        </div>
+
+        {/* </form> */}
       </div>
       {/* Need to determine a better method of defining the height of the frame */}
       <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide h-[700px] my-4'>

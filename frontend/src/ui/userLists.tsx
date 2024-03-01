@@ -12,7 +12,7 @@ import { GetLists, SortList } from '../actions/actions';
 const listTooShortMessages = [
   "Don't waste my time...",
   'You call that a list?',
-  'I only sort lists with at least 10 films.',
+  'Give me at least 10 films.',
   'You can sort that yourself!',
 ] as const;
 
@@ -69,7 +69,7 @@ function UserLists() {
   // If it's less than 5, give a message like "don't waste my time"
   //
   return (
-    <div className='w-max'>
+    <div className='w-max bg-white bg-opacity-5 rounded-2xl py-6 px-8 outline-indigo-400 mx-auto md:mx-0'>
       <form
         onSubmit={(e) => {
           handleFormSubmit(e);
@@ -102,7 +102,9 @@ function UserLists() {
             );
           })}
         </div>
-        <button type='submit' className='hover:text-teal-400 hover:translate-x-0.5 transition-all'>
+        <button
+          type='submit'
+          className='hover:text-teal-400 hover:translate-x-0.5 transition-all font-semibold border-b-[1px] border-indigo-500'>
           Let&apos;s Sort!
         </button>
         <p className='text-xs text-red-400 absolute'>{listLengthMessage}</p>
