@@ -23,3 +23,7 @@ code {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.animate-fadeOut {
+  @apply opacity-0;
+}

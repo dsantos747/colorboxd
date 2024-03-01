@@ -1,19 +1,18 @@
 import { useContext } from 'react';
 import UserLists from '../ui/userLists';
-import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
+import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import ListPreview from '../ui/listPreview';
 
 const UserContent = () => {
   const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
+  const { list } = useContext(ListContext) as ListContextType;
 
   return (
-    <div className='flex flex-col justify-center py-20'>
+    <div className='flex flex-col justify-center py-20 w-full'>
       {userToken && (
-        <div className='grid grid-cols-1 md:grid-cols-2 mx-16'>
-          <div>
-            <UserLists></UserLists>
-          </div>
-          <ListPreview></ListPreview>
+        <div className='flex flex-col md:flex-row md:justify-between mx-16 gap-6'>
+          <div className='flex-grow-0'>{<UserLists></UserLists>}</div>
+          <div className='grow'>{list && <ListPreview></ListPreview>}</div>
         </div>
       )}
     </div>

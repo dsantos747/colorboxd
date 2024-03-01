@@ -18,6 +18,7 @@ async function GetAccessTokenAndUser(authCode: string, refresh: boolean = false)
    * invalidates any method of caching tbh. Might be necessary to:
    * - Upon first attempt, create authCode cookie. Need expiry time, check docs?
    *             =Apparently, most use 30-60 second expiration times
+   *                  - In this case, is there any use in creating a cookie?
    * - Next time you try to sign in, need to check if an authcode cookie exists
    *     - If so, directly run this function using the existing authcode
    *     - If not, redirect to sign in page (that then redirects with authCode in url query)
@@ -66,7 +67,7 @@ async function SortList(accessToken: string, listSummary: ListSummary, refresh: 
 
   const response = await fetch(`${BACKEND_URL}SortList?accessToken=${encodeURIComponent(accessToken)}&listId=${listSummary.id}`, {
     method: 'GET',
-    cache: 'reload', // Update this after testing
+    cache: cacheMode,
     credentials: 'include',
   });
   if (!response.ok) {

@@ -7,8 +7,8 @@ type Props = {};
 const sorts = [
   { id: 'hue', name: 'Hue-Based Sort' },
   { id: 'step', name: 'Alternating Step Sort' },
-  { id: 'hilbert', name: 'Hilbert' },
-  { id: 'cie2000', name: 'CIELAB2000' },
+  { id: 'hilbert', name: 'Hilbert Sort' },
+  { id: 'cie2000', name: 'CIELAB2000 Sort' },
 ] as const;
 
 type SortTypes = (typeof sorts)[number];
@@ -25,7 +25,7 @@ export default function ListPreview({}: Props) {
         .then((message) => {
           console.log(message);
           setStartIndex(0);
-          // setList(null);
+          setList(null);
         })
         .catch((error) => {
           console.error('Error writing sorted list to letterboxd account:', error);
@@ -33,39 +33,37 @@ export default function ListPreview({}: Props) {
     }
   }
 
+  function handleCancel() {
+    if (userToken && list) {
+      setList(null);
+    }
+  }
+
   return (
     <div>
       <div className='flex justify-between flex-wrap'>
         <div>
-          <h3 className='text-lg'>List Sorting results</h3>
+          <h3 className='text-lg'>Preview Results</h3>
           <p className='text-sm'>Hint: Click an item to make it the first in the list.</p>
         </div>
         <form className='flex gap-2 h-8'>
           <select name='sortMethod' id='sortMethod' className='h-8 bg-gray-900 w-max'>
             {sorts.map((mode) => {
               return (
-                <option key={mode.id} value={mode.id}>
+                <option key={mode.id} value={mode.id} className='text-xs'>
                   {mode.name}
                 </option>
               );
             })}
           </select>
-          <button
-            onClick={() => {
-              handleSaveList();
-            }}
-            className='bg-blue-700 px-3 rounded-sm'
-            type='button'>
-            Save List
-          </button>
         </form>
       </div>
       {/* Need to determine a better method of defining the height of the frame */}
-      <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide h-[700px]'>
+      <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide h-[700px] my-4'>
         {list?.entries.map((l, i) => {
           const ind = (i + startIndex) % list.entries.length; // Use this to determine starting image
           return (
-            <div key={l.entryId} className='m-2'>
+            <div key={l.entryId} className='m-1'>
               <button
                 type='button'
                 onClick={() => {
@@ -76,6 +74,26 @@ export default function ListPreview({}: Props) {
             </div>
           );
         })}
+      </div>
+      <div className='bg-gradient-to-r from-blue-600 via-teal-500 to-lime-500 h-0.5 w-full'></div>
+
+      <div className='w-max mx-auto mt-4 space-x-2'>
+        <button
+          onClick={() => {
+            handleCancel();
+          }}
+          className='px-3 py-2 rounded-sm mx-auto bg-gray-700 bg-opacity-50 text-orange-500 hover:bg-opacity-20 hover:text-gray-400 transition-colors duration-300'
+          type='button'>
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            handleSaveList();
+          }}
+          className='px-3 py-2 rounded-sm mx-auto bg-gray-700 bg-opacity-50 text-teal-400 hover:bg-teal-800 hover:text-white transition-colors duration-300'
+          type='button'>
+          Save List
+        </button>
       </div>
     </div>
   );

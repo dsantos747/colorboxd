@@ -14,7 +14,7 @@ const Nav = () => {
 
   return (
     <nav className='fixed w-screen'>
-      <div className='flex justify-between items-center mx-8 h-14'>
+      <div className='flex justify-between items-center mx-8 h-14 my-4'>
         <Link to={'/'} className='text-xl'>
           <h1>
             <ColorboxdLogo />
