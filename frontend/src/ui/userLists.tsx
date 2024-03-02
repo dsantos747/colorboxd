@@ -69,7 +69,7 @@ function UserLists() {
   // If it's less than 5, give a message like "don't waste my time"
   //
   return (
-    <div className='w-max bg-white bg-opacity-5 rounded-2xl py-6 px-8 outline-indigo-400 mx-auto md:mx-0'>
+    <div className='w-max bg-white bg-opacity-5 rounded-2xl py-6 px-8 outline-indigo-400 mx-auto md:mx-0 min-h-64'>
       <form
         onSubmit={(e) => {
           handleFormSubmit(e);
