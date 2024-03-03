@@ -3,11 +3,9 @@ package colorboxd
 import "testing"
 
 func TestLoadImage(t *testing.T) {
-	imageSource = &ImgSources.local
-
-	_, err := LoadImage("../images/test/00ff00.png")
+	_, err := LoadImage("https://www.colorhexa.com/ff0000.png")
 	if err != nil {
-		t.Errorf("Load valid image 00ff00.png shouldn't error, had error: %v\n", err)
+		t.Errorf("Load valid image ff0000.png shouldn't error, had error: %v\n", err)
 	}
 	_, err = LoadImage("./images/test/invalid.txt")
 	if err == nil {
@@ -16,8 +14,7 @@ func TestLoadImage(t *testing.T) {
 }
 
 func TestGetRedImageInfo(t *testing.T) {
-	imageSource = &ImgSources.local
-	imagePath := "../images/test/ff0000.png"
+	imagePath := "https://www.colorhexa.com/ff0000.png"
 	entry := Entry{ImageInfo: ImageInfo{Path: imagePath}}
 	var expectedHue float64 = 0
 	expectedHex := "#FF0000"

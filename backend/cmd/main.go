@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/GoogleCloudPlatform/functions-framework-go/funcframework"
-	_ "github.com/dsantos747/letterboxd_hue_sort/backend/colorboxd"
+	_ "github.com/dsantos747/letterboxd_hue_sort/backend"
 )
 
 func main() {
