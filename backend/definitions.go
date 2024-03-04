@@ -134,3 +134,8 @@ type ListUpdateMessage struct {
 	Code  string `json:"code"`
 	Title string `json:"title"`
 }
+
+type FilmTargetPosition struct {
+	FilmId   string
+	Position int
+}

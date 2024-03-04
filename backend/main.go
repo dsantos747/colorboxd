@@ -20,6 +20,7 @@ import (
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
+	"github.com/joho/godotenv"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -31,14 +32,14 @@ func init() {
 }
 
 func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Received call to HTTPAuthUser")
+	var err error
 
 	// Read env variables - local development only
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-	// 	return
-	// }
+	err = godotenv.Load()
+	if err != nil {
+		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		return
+	}
 
 	// Set necessary headers for CORS and cache policy
 	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
@@ -86,14 +87,14 @@ func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Received call to HTTPGetLists")
+	var err error
 
 	// Read env variables - local development only
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-	// 	return
-	// }
+	err = godotenv.Load()
+	if err != nil {
+		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		return
+	}
 
 	// Set necessary headers for CORS and cache policy
 	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
@@ -124,6 +125,104 @@ func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
 	// Return response to client
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(userLists)
+}
+
+func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	// Read env variables - local development only
+	err = godotenv.Load()
+	if err != nil {
+		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		return
+	}
+
+	// Set necessary headers for CORS and cache policy
+	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+
+	// Read accessToken from query url - return error if not present
+	accessToken := r.URL.Query().Get("accessToken")
+	if accessToken == "" {
+		http.Error(w, "Missing or empty 'accessToken' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Get List id
+	listId := r.URL.Query().Get("listId")
+	if listId == "" {
+		http.Error(w, "Missing or empty 'listId' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Get Entries from List
+	listEntries, err := GetListEntries(accessToken, listId)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting entries from list: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	entriesWithImageInfo, err := processListImages(listEntries)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error processing posters for list entries: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	slices.SortFunc[[]Entry](*entriesWithImageInfo, func(a, b Entry) int { return cmp.Compare[float64](a.ImageInfo.Hue, b.ImageInfo.Hue) })
+
+	response := map[string][]Entry{
+		"items": *entriesWithImageInfo,
+	}
+
+	// Return response to client
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	// Read env variables - local development only
+	err = godotenv.Load()
+	if err != nil {
+		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		return
+	}
+
+	// Set necessary headers for CORS
+	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var responseData WriteListRequest
+	err = json.NewDecoder(r.Body).Decode(&responseData)
+	if err != nil {
+		http.Error(w, "Missing or empty 'accessToken' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	listUpdateRequest, err := prepareListUpdateRequest(responseData.List, responseData.Offset, "")
+	if err != nil {
+		http.Error(w, "Error preparing list update request body", http.StatusInternalServerError)
+		return
+	}
+
+	message, err := writeListSorting(responseData.AccessToken, responseData.List.ID, *listUpdateRequest)
+	if err != nil {
+		fmt.Println("b", err)
+		http.Error(w, "Error updating user list", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(message)
 }
 
 func GetAccessToken(authCode string) (*AccessTokenResponse, error) {
@@ -203,59 +302,6 @@ func GetUserLists(token, id string) (*[]ListSummary, error) {
 	var lists []ListSummary = responseData.Items
 
 	return &lists, nil
-}
-
-func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Received call to HTTPSortListById")
-
-	// Read env variables - local development only
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-	// 	return
-	// }
-
-	// Set necessary headers for CORS and cache policy
-	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
-	w.Header().Set("Access-Control-Allow-Credentials", "true")
-	w.Header().Set("Cache-Control", "private, max-age=3600")
-
-	// Read accessToken from query url - return error if not present
-	accessToken := r.URL.Query().Get("accessToken")
-	if accessToken == "" {
-		http.Error(w, "Missing or empty 'accessToken' query parameter", http.StatusBadRequest)
-		return
-	}
-
-	// Get List id
-	listId := r.URL.Query().Get("listId")
-	if listId == "" {
-		http.Error(w, "Missing or empty 'listId' query parameter", http.StatusBadRequest)
-		return
-	}
-
-	// Get Entries from List
-	listEntries, err := GetListEntries(accessToken, listId)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting entries from list: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	entriesWithImageInfo, err := processListImages(listEntries)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error processing posters for list entries: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	slices.SortFunc[[]Entry](*entriesWithImageInfo, func(a, b Entry) int { return cmp.Compare[float64](a.ImageInfo.Hue, b.ImageInfo.Hue) })
-
-	response := map[string][]Entry{
-		"items": *entriesWithImageInfo,
-	}
-
-	// Return response to client
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
 }
 
 func GetListEntries(token, id string) (*[]Entry, error) {
@@ -338,7 +384,7 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 	}
 
 	if len(images) != n {
-		err := errors.New("Error: Images slice length does not match image paths slice length.")
+		err := errors.New("error: images slice length does not match image paths slice length")
 		return nil, err
 	}
 
@@ -359,108 +405,58 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 	return &entrySlice, nil
 }
 
-func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Received call to HTTPWriteList")
-
-	// Read env variables - local development only
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-	// 	return
-	// }
-
-	// Set necessary headers for CORS
-	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
-	w.Header().Set("Access-Control-Allow-Credentials", "true")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	var responseData WriteListRequest
-	err := json.NewDecoder(r.Body).Decode(&responseData)
-	if err != nil {
-		fmt.Println("Here")
-
-		http.Error(w, "Missing or empty 'accessToken' query parameter", http.StatusBadRequest)
-		return
-	}
-
-	listUpdateRequest, err := prepareListUpdateRequest(responseData.List, responseData.Offset, "")
-	if err != nil {
-		http.Error(w, "Error preparing list update request body", http.StatusBadRequest)
-		return
-	}
-
-	message, err := writeListSorting(responseData.AccessToken, responseData.List.ID, *listUpdateRequest)
-	if err != nil {
-		http.Error(w, "Error updating user list", http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(message)
-}
-
 // Taking a sorted list, return a ListUpdateRequest, as required by Letterboxd endpoint
 func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod string) (*ListUpdateRequest, error) {
-	request := ListUpdateRequest{Version: list.Version}
-
-	//
-	//
-	//
-	//
-	// THIS STILL CONTAINS A BUG. Sorting as seen on colorboxd doesn't always match how the list ends up
-	//
-	//
-	//
-	//
-
-	// n := len(list.Entries)
+	n := len(list.Entries)
 	currentPositions := make(map[string]int)
-	finishPositions := make(map[string]int)
+	finishSlice := []FilmTargetPosition{}
+
 	for i, entry := range list.Entries {
 		initPos, err := strconv.Atoi(entry.EntryID)
 		if err != nil {
 			fmt.Println("Error parsing entryId to int")
 			return nil, err
 		}
-		// endPos := (i - offset) % n // FIX: Offset doesn't seem to be working correctly
+		endPos := ((i + n) - offset) % n
 
 		currentPositions[entry.FilmID] = initPos
-		finishPositions[entry.FilmID] = i
+		finishSlice = append(finishSlice, FilmTargetPosition{entry.FilmID, endPos})
 	}
 
+	slices.SortFunc(finishSlice, func(a, b FilmTargetPosition) int {
+		return a.Position - b.Position
+	})
+
+	updateEntries := createListUpdateEntries(currentPositions, finishSlice)
+
+	request := ListUpdateRequest{Version: list.Version, Entries: updateEntries}
+
+	return &request, nil
+}
+
+func createListUpdateEntries(currentPositions map[string]int, finishPositions []FilmTargetPosition) []listUpdateEntry {
 	updateEntries := []listUpdateEntry{}
+	for _, film := range finishPositions {
+		currPos := currentPositions[film.FilmId]
+		if film.Position == currPos {
+			continue
+		}
 
-	for film, finPos := range finishPositions {
-		currPos := currentPositions[film]
-
-		delta := finPos - currPos
-
-		updateEntries = append(updateEntries, listUpdateEntry{Action: "UPDATE", Position: currPos, NewPosition: finPos})
-
-		currentPositions[film] = finPos
+		updateEntries = append(updateEntries, listUpdateEntry{Action: "UPDATE", Position: currPos, NewPosition: film.Position})
+		currentPositions[film.FilmId] = film.Position
 
 		for f, cP := range currentPositions {
-			if f != film {
-				if delta > 0 && currPos < cP && cP <= finPos {
-					currentPositions[f]--
-				} else if delta < 0 && finPos <= cP && cP < currPos {
+			if f != film.FilmId {
+				if film.Position <= cP && cP < currPos {
 					currentPositions[f]++
 				}
 			}
 		}
 	}
-
-	request.Entries = updateEntries
-	return &request, nil
+	return updateEntries
 }
 
-// Send request to Letterboxd endpoint to update list
+// Send request to Letterboxd endpoint to update list.
 func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[]string, error) {
 
 	// Prepare endpoint and body for PATCH request
@@ -476,7 +472,6 @@ func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(response.Status)
 	defer response.Body.Close()
 
 	var responseData ListUpdateResponse
@@ -484,8 +479,6 @@ func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[
 		fmt.Println(err)
 		return nil, err
 	}
-
-	fmt.Println(responseData.Messages)
 
 	var message []string
 	if len(responseData.Messages) != 0 {
@@ -496,12 +489,6 @@ func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[
 		return &message, errors.New(errorStr)
 	}
 
-	//
-	//
-	// Consider using the ListUpdateMessage type, even for a successful response, to
-	// maintain standard response type between errors and successes.
-	//
-	//
 	message = []string{"List updated successfully"}
 
 	return &message, nil
@@ -544,7 +531,7 @@ func loadImageConcurrent(entry Entry, wg *sync.WaitGroup, imageChan chan<- Image
 	imageChan <- image
 }
 
-func getDominantColor(k int, method int, img image.Image) (*string, error) {
+func getDominantColors(k int, method int, img image.Image) (*[]prominentcolor.ColorItem, error) {
 	resizeSize := uint(prominentcolor.DefaultSize)
 	// bgmasks := prominentcolor.GetDefaultMasks() // Default masks (black,white or green backgrounds)
 	bgmasks := []prominentcolor.ColorBackgroundMask{} // No mask
@@ -557,22 +544,37 @@ func getDominantColor(k int, method int, img image.Image) (*string, error) {
 		return nil, err
 	}
 
-	stringResponse := res[0].AsString()
-	// IMPORTANT - here we are choosing only the single most dominant colour. Might be useful to pass the three most dominant colours.
-	// Then, we can round all hue values, and have three sub hue values. If any hues are directly equal, can use the second-most
-	// dominant colour to determine how to sort the images.
-	return &stringResponse, nil
+	// Limit to top 3 colors
+	if len(res) > 3 {
+		res = res[0:2]
+	}
+
+	return &res, nil
 }
 
 func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	var method int = prominentcolor.ArgumentNoCropping // This is a constant
 
-	domColor, err := getDominantColor(3, method, img)
+	colors, err := getDominantColors(3, method, img)
 	if err != nil {
 		return nil, err
 	}
 
-	hex := "#" + *domColor
+	//
+	// Need to implement a function to identify the first most dominant colour with acceptable
+	// saturation and luminosity. If that isn't the most dominant colour, need to identify that
+	// so that the colour can be sorted into e.g. black + red. Also need to use the "count" parameter
+	// of the colors, to determine how much there is. Can then use this to assign a weighting to
+	// that colour.
+	// In principle, given this is a k-means method, the fitst colour shouldn't be too similar to
+	// the first or third, so should be able to extract some highlights.
+	//
+	// An alternative algorithm could be to choose somewhere in the hue scale to insert all the lights, and
+	// somewhere to insert all the darks. Then could run through all darks in highlight-colour order.
+	//
+	domColor := (*colors)[0].AsString() // Improve this
+
+	hex := "#" + domColor
 	color, _ := colorful.Hex(hex)
 	hue, _, _ := color.Hsv()
 
