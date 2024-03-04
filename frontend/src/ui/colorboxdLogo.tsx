@@ -1,5 +1,3 @@
-import React from 'react';
-
 const ColorboxdLogo = () => {
   return (
     <div className='font-mono h-min'>

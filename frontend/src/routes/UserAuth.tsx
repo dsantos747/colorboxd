@@ -23,17 +23,15 @@ function UserAuth() {
         if (cookieUserToken) {
           const cookieToken: UserToken = JSON.parse(cookieUserToken);
           setUserToken(cookieToken);
-        } else {
-          if (authCode) {
-            try {
-              const fetchUserToken = await GetAccessTokenAndUser(authCode);
-              setUserToken(fetchUserToken);
-            } catch (error) {
-              console.error('Error getting access token:', error);
-            }
-          } else {
-            window.location.href = authorisationUrl;
+        } else if (authCode) {
+          try {
+            const fetchUserToken = await GetAccessTokenAndUser(authCode);
+            setUserToken(fetchUserToken);
+          } catch (error) {
+            console.error('Error getting access token:', error);
           }
+        } else {
+          window.location.href = authorisationUrl;
         }
       } else if (authCode) {
         // Remove authcode from params

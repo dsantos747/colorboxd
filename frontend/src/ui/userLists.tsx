@@ -8,6 +8,7 @@ import {
   UserTokenContextType,
 } from '../lib/contexts';
 import { GetLists, SortList } from '../actions/actions';
+import { ArrowPathIcon } from '@heroicons/react/16/solid';
 
 const listTooShortMessages = [
   "Don't waste my time...",
@@ -70,15 +71,34 @@ function UserLists() {
     [chosenListIndex, userToken, listSummary, setList]
   );
 
+  const handleRefreshLists = useCallback(() => {
+    GetLists(userToken.Token, userToken.UserId, true)
+      .then((ls) => {
+        setListSummary(ls);
+        setChosenListIndex(0);
+      })
+      .catch((error) => {
+        console.error('Error getting user lists:', error);
+      });
+  }, [setListSummary, userToken]);
+
   const handleMenuState = useCallback(() => {
     setMenuOpen(!menuOpen);
   }, [menuOpen]);
 
   return (
     <div className='w-max bg-white bg-opacity-5 rounded-2xl py-6 px-8 outline-indigo-400 mx-auto md:mx-0 min-w-40 md:min-w-56'>
-      <button type='button' onClick={handleMenuState}>
-        <h2 className='text-lg'>{menuOpen ? 'Your lists:' : 'Show Lists'}</h2>
-      </button>
+      <div className='flex justify-between'>
+        <button type='button' onClick={handleMenuState}>
+          <h2 className='text-lg'>{menuOpen ? 'Your lists:' : 'Show Lists'}</h2>
+        </button>
+        {menuOpen && (
+          <button type='button' onClick={handleRefreshLists}>
+            <ArrowPathIcon className='h-5 w-5 text-gray-500 mr-1 hover:text-teal-400 transition-colors duration-150' />
+          </button>
+        )}
+      </div>
+
       <div className='bg-gradient-to-r from-blue-600 via-teal-500 to-lime-500 h-0.5 w-full' />
       {menuOpen && (
         <form

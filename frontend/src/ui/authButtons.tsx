@@ -1,7 +1,13 @@
 import Cookies from 'js-cookie';
-import { useCallback, useContext } from 'react';
+import { ReactNode, useCallback, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
+
+const happyButtonStyle =
+  'text-sm sm:text-base py-2 px-3 sm:px-5 h-min rounded-lg bg-gray-700 bg-opacity-50 text-teal-400 hover:bg-teal-800 hover:text-white active:bg-teal-700 active:text-white transition-colors duration-200';
+
+const sadButtonStyle =
+  'text-sm sm:text-base py-2 px-3 sm:px-5 h-min rounded-lg bg-gray-700 bg-opacity-50 text-orange-500 hover:bg-opacity-20 hover:text-gray-400 active:bg-opacity-10 active:text-gray-500 transition-all duration-200';
 
 const LoginButton = () => {
   return (
@@ -22,12 +28,32 @@ const SignOutButton = () => {
   }, [navigate, setUserToken]);
 
   return (
-    <button
-      onClick={handleSignOut}
-      className='text-sm sm:text-base py-2 px-3 sm:px-5 h-min rounded-lg bg-gray-700 bg-opacity-50 text-orange-500 hover:bg-opacity-20 hover:text-gray-400 transition-colors duration-300'>
+    <button onClick={handleSignOut} className={`${sadButtonStyle}`}>
       Sign Out
     </button>
   );
 };
 
-export { LoginButton, SignOutButton };
+type ButtonProps = {
+  readonly handleClick: any;
+  readonly type?: 'button' | 'submit' | 'reset';
+  readonly children: ReactNode;
+};
+
+const HappyButton = ({ handleClick, type = 'button', children }: ButtonProps) => {
+  return (
+    <button onClick={handleClick} className={`${happyButtonStyle} `} type={type}>
+      {children}
+    </button>
+  );
+};
+
+const SadButton = ({ handleClick, type = 'button', children }: ButtonProps) => {
+  return (
+    <button onClick={handleClick} className={`${sadButtonStyle} `} type={type}>
+      {children}
+    </button>
+  );
+};
+
+export { LoginButton, SignOutButton, HappyButton, SadButton };

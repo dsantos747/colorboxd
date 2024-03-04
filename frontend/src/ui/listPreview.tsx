@@ -1,6 +1,7 @@
 import { useCallback, useContext, useState } from 'react';
 import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import { WriteSortedList } from '../actions/actions';
+import { HappyButton, SadButton } from './authButtons';
 
 const sorts = [
   { id: 'hue', name: 'Hue-Based Sort' },
@@ -54,11 +55,9 @@ export default function ListPreview() {
   }, []);
 
   return (
-    <div>
+    <>
       <div className='flex flex-wrap justify-between'>
-        {/* <div className=''> */}
         <p className='my-auto'>Hint: Click an item to make it the start of the list.</p>
-        {/* </div> */}
         <form className='flex justify-end flex-wrap align-middle items-center select-none gap-2 ml-auto'>
           <div className='mx-auto'>
             <input type='checkbox' id='showOriginal' className='hidden peer' checked={!currSort.visible} onChange={handleShowOriginal} />
@@ -68,7 +67,6 @@ export default function ListPreview() {
               View {currSort.visible ? 'Original' : 'Sorted'}
             </label>
           </div>
-
           <select
             name='sortMethod'
             id='sortMethod'
@@ -85,8 +83,9 @@ export default function ListPreview() {
           </select>
         </form>
       </div>
+
       {/* Need to determine a better method of defining the height of the frame */}
-      <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide h-[65vh] my-4'>
+      <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide md:h-[60vh] my-4'>
         {list?.entries.map((l, i) => {
           const ind = (i + startIndex) % list.entries.length; // Use this to determine starting image
           return (
@@ -102,26 +101,12 @@ export default function ListPreview() {
           );
         })}
       </div>
-      <div className='bg-gradient-to-r from-blue-600 via-teal-500 to-lime-500 h-0.5 w-full' />
 
+      <div className='bg-gradient-to-r from-blue-600 via-teal-500 to-lime-500 h-0.5 w-full' />
       <div className='w-max mx-auto mt-4 space-x-2'>
-        <button
-          onClick={() => {
-            handleCancel();
-          }}
-          className='px-3 py-2 rounded-sm bg-gray-700 bg-opacity-50 text-orange-500 hover:bg-opacity-20 hover:text-gray-400 transition-colors duration-300'
-          type='button'>
-          Cancel
-        </button>
-        <button
-          onClick={() => {
-            handleSaveList();
-          }}
-          className='px-3 py-2 rounded-sm bg-gray-700 bg-opacity-50 text-teal-400 hover:bg-teal-800 hover:text-white active:bg-teal-700 active:text-white transition-colors duration-300'
-          type='button'>
-          Save List
-        </button>
+        <SadButton handleClick={handleCancel}>Cancel</SadButton>
+        <HappyButton handleClick={handleSaveList}>Save List</HappyButton>
       </div>
-    </div>
+    </>
   );
 }
