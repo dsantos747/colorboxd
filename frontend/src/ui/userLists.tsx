@@ -22,7 +22,7 @@ type listTypes = (typeof listTooShortMessages)[number];
 function UserLists() {
   const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
   const { listSummary, setListSummary } = useContext(ListSummaryContext) as ListSummaryContextType;
-  const { setList } = useContext(ListContext) as ListContextType;
+  const { list, setList } = useContext(ListContext) as ListContextType;
   const [chosenListIndex, setChosenListIndex] = useState<number>();
   const [listLengthMessage, setListLengthMessage] = useState<listTypes | null>();
   const [menuOpen, setMenuOpen] = useState<boolean>(true);
@@ -85,6 +85,12 @@ function UserLists() {
   const handleMenuState = useCallback(() => {
     setMenuOpen(!menuOpen);
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (list === null) {
+      setMenuOpen(true);
+    }
+  }, [list]);
 
   return (
     <div className='w-max bg-white bg-opacity-5 rounded-2xl py-6 px-8 outline-indigo-400 mx-auto md:mx-0 min-w-40 md:min-w-56'>

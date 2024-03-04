@@ -11,14 +11,14 @@ function colorHighlight(text: string) {
 
 const Home = () => {
   return (
-    <div className='text-center flex flex-col sm:flex-row md:justify-between md:grow w-full md:px-20 max-w-screen-lg items-center justify-center text-white'>
+    <div className='text-center flex flex-col sm:flex-row gap-2 md:justify-between md:grow w-full md:px-20 max-w-screen-lg items-center justify-center text-white'>
       <div className='space-y-10 hidden sm:block'>
         <h1 className='text-5xl font-bold tracking-widest'>
           <ColorboxdLogo />
         </h1>
         <p className=''>Letterboxd lists, but {colorHighlight('prettier.')}</p>
       </div>
-      <h1 className='sm:hidden text-xl mb-8'>Letterboxd lists, but {colorHighlight('prettier.')}</h1>
+      <h1 className='sm:hidden text-xl mb-6'>Letterboxd lists, but {colorHighlight('prettier.')}</h1>
       <div>
         <ColorScroll></ColorScroll>
       </div>

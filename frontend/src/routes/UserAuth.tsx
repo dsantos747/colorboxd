@@ -24,6 +24,7 @@ function UserAuth() {
           const cookieToken: UserToken = JSON.parse(cookieUserToken);
           setUserToken(cookieToken);
         } else if (authCode) {
+          Cookies.set('authCode', authCode, { expires: 30 });
           try {
             const fetchUserToken = await GetAccessTokenAndUser(authCode);
             setUserToken(fetchUserToken);

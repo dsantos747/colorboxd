@@ -11,7 +11,7 @@ const sadButtonStyle =
 
 const LoginButton = () => {
   return (
-    <Link to={'./user'} className='text-sm sm:text-base py-2 px-3 sm:px-6 h-min rounded-sm bg-blue-800'>
+    <Link to={'./user'} className={`${happyButtonStyle}`}>
       Get Started
     </Link>
   );

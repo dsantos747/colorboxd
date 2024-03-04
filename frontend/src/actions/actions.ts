@@ -1,7 +1,7 @@
 import Cookies from 'js-cookie';
 import { EntryWithImage, List, ListSummary, UserToken } from '../lib/definitions';
 
-const BACKEND_URL = process.env.REACT_APP_SERVER_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const PORT1 = process.env.REACT_APP_DEV_PORT1 ?? '';
 const PORT2 = process.env.REACT_APP_DEV_PORT2 ?? '';
 
