@@ -1,8 +1,6 @@
-import { useContext, useState } from 'react';
+import { useCallback, useContext, useState } from 'react';
 import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import { WriteSortedList } from '../actions/actions';
-
-type Props = {};
 
 const sorts = [
   { id: 'hue', name: 'Hue-Based Sort' },
@@ -18,13 +16,13 @@ type SortModeType = {
   visible: boolean;
 };
 
-export default function ListPreview({}: Props) {
+export default function ListPreview() {
   const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
   const { list, setList } = useContext(ListContext) as ListContextType;
   const [currSort, setCurrSort] = useState<SortModeType>({ sortMode: { id: 'hue', name: 'Hue-Based Sort' }, visible: true });
   const [startIndex, setStartIndex] = useState<number>(0);
 
-  function handleSaveList() {
+  const handleSaveList = useCallback(() => {
     if (userToken && list) {
       WriteSortedList(userToken.Token, list, startIndex)
         .then((message) => {
@@ -36,33 +34,33 @@ export default function ListPreview({}: Props) {
           console.error('Error writing sorted list to letterboxd account:', error);
         });
     }
-  }
+  }, [userToken, list, setList, startIndex]);
 
-  function handleCancel() {
+  const handleCancel = useCallback(() => {
     if (userToken && list) {
       setList(null);
     }
-  }
+  }, [userToken, list, setList]);
 
-  function handleShowOriginal() {
+  const handleShowOriginal = useCallback(() => {
     setCurrSort({ sortMode: currSort.sortMode, visible: !currSort.visible });
-  }
+  }, [currSort]);
 
-  function handleSortChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  const handleSortChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedMode = sorts.find((s) => s.id === e.target.value);
     if (selectedMode) {
       setCurrSort({ sortMode: selectedMode, visible: true });
     }
-  }
+  }, []);
 
   return (
     <div>
-      <div className='xl:flex xl:justify-between xl:align-middle'>
+      <div className='flex flex-wrap justify-between'>
         {/* <div className=''> */}
         <p className='my-auto'>Hint: Click an item to make it the start of the list.</p>
         {/* </div> */}
-        <form className='flex justify-end flex-wrap align-middle items-center select-none gap-2'>
-          <div className=''>
+        <form className='flex justify-end flex-wrap align-middle items-center select-none gap-2 ml-auto'>
+          <div className='mx-auto'>
             <input type='checkbox' id='showOriginal' className='hidden peer' checked={!currSort.visible} onChange={handleShowOriginal} />
             <label
               htmlFor='showOriginal'
@@ -98,13 +96,13 @@ export default function ListPreview({}: Props) {
                 onClick={() => {
                   setStartIndex(ind);
                 }}>
-                <img src={list.entries[ind].posterUrl} alt={list.entries[ind].name}></img>
+                <img src={list.entries[ind].posterUrl} alt={list.entries[ind].name} />
               </button>
             </div>
           );
         })}
       </div>
-      <div className='bg-gradient-to-r from-blue-600 via-teal-500 to-lime-500 h-0.5 w-full'></div>
+      <div className='bg-gradient-to-r from-blue-600 via-teal-500 to-lime-500 h-0.5 w-full' />
 
       <div className='w-max mx-auto mt-4 space-x-2'>
         <button
@@ -119,7 +117,7 @@ export default function ListPreview({}: Props) {
           onClick={() => {
             handleSaveList();
           }}
-          className='px-3 py-2 rounded-sm bg-gray-700 bg-opacity-50 text-teal-400 hover:bg-teal-800 hover:text-white transition-colors duration-300'
+          className='px-3 py-2 rounded-sm bg-gray-700 bg-opacity-50 text-teal-400 hover:bg-teal-800 hover:text-white active:bg-teal-700 active:text-white transition-colors duration-300'
           type='button'>
           Save List
         </button>

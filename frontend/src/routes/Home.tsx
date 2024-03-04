@@ -7,11 +7,7 @@ const ComingSoon = () => {
         <h1 className='text-5xl font-bold tracking-widest hidden sm:block'>
           <ColorboxdLogo />
         </h1>
-        <p className=''>
-          Make Letterboxd lists your personality.
-          <br />
-          Make them beautiful.
-        </p>
+        <p className=''>Letterboxd lists, but even prettier.</p>
       </div>
       <div>
         <img src='logo512_clear.png' className='h-[40vmin] pointer-events-none mx-auto' alt='logo' />

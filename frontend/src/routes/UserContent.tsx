@@ -10,9 +10,9 @@ const UserContent = () => {
   return (
     <div className='flex flex-col justify-center py-20 w-full'>
       {userToken && (
-        <div className='flex flex-col md:flex-row md:justify-between mx-16 gap-6'>
-          <div className='flex-grow-0'>{<UserLists></UserLists>}</div>
-          <div className='grow'>{list && <ListPreview></ListPreview>}</div>
+        <div className='flex flex-col md:flex-row md:justify-between mx-8 md:mx-16 gap-6'>
+          <div className='flex-grow-0'>{<UserLists />}</div>
+          <div className='grow'>{list && <ListPreview />}</div>
         </div>
       )}
     </div>

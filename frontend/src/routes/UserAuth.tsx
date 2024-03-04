@@ -21,13 +21,11 @@ function UserAuth() {
       if (!userToken) {
         const cookieUserToken = Cookies.get('userToken');
         if (cookieUserToken) {
-          console.log('Got user token from cookie');
           const cookieToken: UserToken = JSON.parse(cookieUserToken);
           setUserToken(cookieToken);
         } else {
           if (authCode) {
             try {
-              console.log('Fetching user token');
               const fetchUserToken = await GetAccessTokenAndUser(authCode);
               setUserToken(fetchUserToken);
             } catch (error) {
@@ -37,20 +35,18 @@ function UserAuth() {
             window.location.href = authorisationUrl;
           }
         }
-      } else {
-        if (authCode) {
-          // Remove authcode from params
-          const { pathname, search } = location;
-          const updatedQueryParams = new URLSearchParams(search);
-          updatedQueryParams.delete('code');
-          navigate(`${pathname}?${updatedQueryParams.toString()}`);
-        }
+      } else if (authCode) {
+        // Remove authcode from params
+        const { pathname, search } = location;
+        const updatedQueryParams = new URLSearchParams(search);
+        updatedQueryParams.delete('code');
+        navigate(`${pathname}?${updatedQueryParams.toString()}`);
       }
     };
     handleTokenStatus();
-  }, [authCode, userToken, setUserToken, authorisationUrl]);
+  }, [authCode, userToken, setUserToken, authorisationUrl, location, navigate]);
 
-  return <>{userToken && <UserContent />}</>;
+  return userToken && <UserContent />;
 }
 
 export default UserAuth;

@@ -1,10 +1,11 @@
 import Cookies from 'js-cookie';
 import { EntryWithImage, List, ListSummary, UserToken } from '../lib/definitions';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const BACKEND_URL2 = process.env.REACT_APP_BACKEND_URL2;
+const BACKEND_URL = process.env.REACT_APP_SERVER_URL;
+const PORT1 = process.env.REACT_APP_DEV_PORT1 ?? '';
+const PORT2 = process.env.REACT_APP_DEV_PORT2 ?? '';
 
-async function GetAccessTokenAndUser(authCode: string, refresh: boolean = false): Promise<UserToken> {
+async function GetAccessTokenAndUser(authCode: string, refresh = false): Promise<UserToken> {
   const cookieUserToken = Cookies.get('userToken');
   if (cookieUserToken !== undefined) {
     const cookieData: UserToken = JSON.parse(cookieUserToken);
@@ -25,10 +26,10 @@ async function GetAccessTokenAndUser(authCode: string, refresh: boolean = false)
    *
    *
    */
-  let cacheMode: RequestCache = refresh ? 'reload' : 'default';
+  const cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
   // Fetch access token from backend
-  const response = await fetch(`${BACKEND_URL}AuthUser?authCode=${encodeURIComponent(authCode)}`, {
+  const response = await fetch(`${BACKEND_URL}${PORT1}AuthUser?authCode=${encodeURIComponent(authCode)}`, {
     method: 'GET',
     cache: cacheMode,
     credentials: 'include',
@@ -44,10 +45,10 @@ async function GetAccessTokenAndUser(authCode: string, refresh: boolean = false)
   return data;
 }
 
-async function GetLists(accessToken: string, userId: string, refresh: boolean = false): Promise<ListSummary[]> {
-  let cacheMode: RequestCache = refresh ? 'reload' : 'default';
+async function GetLists(accessToken: string, userId: string, refresh = false): Promise<ListSummary[]> {
+  const cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
-  const response = await fetch(`${BACKEND_URL2}GetLists?accessToken=${encodeURIComponent(accessToken)}&userId=${userId}`, {
+  const response = await fetch(`${BACKEND_URL}${PORT2}GetLists?accessToken=${encodeURIComponent(accessToken)}&userId=${userId}`, {
     method: 'GET',
     cache: cacheMode,
     credentials: 'include',
@@ -62,10 +63,10 @@ async function GetLists(accessToken: string, userId: string, refresh: boolean = 
   return data;
 }
 
-async function SortList(accessToken: string, listSummary: ListSummary, refresh: boolean = false): Promise<List> {
-  let cacheMode: RequestCache = refresh ? 'reload' : 'default';
+async function SortList(accessToken: string, listSummary: ListSummary, refresh = false): Promise<List> {
+  const cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
-  const response = await fetch(`${BACKEND_URL}SortList?accessToken=${encodeURIComponent(accessToken)}&listId=${listSummary.id}`, {
+  const response = await fetch(`${BACKEND_URL}${PORT1}SortList?accessToken=${encodeURIComponent(accessToken)}&listId=${listSummary.id}`, {
     method: 'GET',
     cache: cacheMode,
     credentials: 'include',
@@ -77,7 +78,7 @@ async function SortList(accessToken: string, listSummary: ListSummary, refresh: 
   }
 
   const data = await response.json();
-  const entryListWithImages: EntryWithImage[] = data['items'] as any as EntryWithImage[];
+  const entryListWithImages: EntryWithImage[] = data.items as EntryWithImage[];
   const list: List = {
     ...listSummary,
     entries: entryListWithImages,
@@ -86,20 +87,14 @@ async function SortList(accessToken: string, listSummary: ListSummary, refresh: 
   return list;
 }
 
-async function WriteSortedList(accessToken: string, list: List, offset: number): Promise<string> {
-  // This will send the processed sortMap to the backend. The sortMap tells the backend how we would like to re-sort the list. That should then be written to the user's letterboxd list.
-  console.log('time to write the sorted list');
+async function WriteSortedList(accessToken: string, list: List, offset: number, refresh = false): Promise<string> {
+  const cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
-  const requestBody = {
-    accessToken: accessToken,
-    list: list,
-    offset: offset,
-  };
+  const requestBody = { accessToken, list, offset };
 
-  console.log(requestBody);
-
-  const response = await fetch(`${BACKEND_URL2}SortList`, {
+  const response = await fetch(`${BACKEND_URL}${PORT2}WriteList`, {
     method: 'POST',
+    cache: cacheMode,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
