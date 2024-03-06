@@ -61,7 +61,7 @@ export default function ListPreview() {
   }, []);
 
   return (
-    <>
+    <div className='mx-auto max-w-6xl'>
       <div className='flex flex-wrap justify-between'>
         <p className='my-auto'>Hint: Click an item to make it the start of the list.</p>
         <form className='flex justify-end flex-wrap align-middle items-center select-none gap-2 ml-auto'>
@@ -91,11 +91,11 @@ export default function ListPreview() {
       </div>
 
       {/* Need to determine a better method of defining the height of the frame */}
-      <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 overflow-y-auto scrollbar-hide md:h-[60vh] my-4'>
+      <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide md:h-[60vh] my-4 mx-auto'>
         {list?.entries.map((l, i) => {
           const ind = (i + startIndex) % list.entries.length; // Use this to determine starting image
           return (
-            <div key={l.entryId} className='m-1'>
+            <div key={l.entryId} className='m-1 text-center'>
               <button
                 type='button'
                 onClick={() => {
@@ -115,6 +115,6 @@ export default function ListPreview() {
           Save List
         </HappyButton>
       </div>
-    </>
+    </div>
   );
 }
