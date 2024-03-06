@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
-import { LoginButton, SignOutButton } from './authButtons';
+import { LoginButton, SignOutButton } from './buttons';
 import ColorboxdLogo from './colorboxdLogo';
 import { Link } from 'react-router-dom';
 

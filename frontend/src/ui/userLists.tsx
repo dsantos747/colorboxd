@@ -26,6 +26,7 @@ function UserLists() {
   const [chosenListIndex, setChosenListIndex] = useState<number>();
   const [listLengthMessage, setListLengthMessage] = useState<listTypes | null>();
   const [menuOpen, setMenuOpen] = useState<boolean>(true);
+  const [formSubmitting, setFormSubmitting] = useState<boolean>(false);
 
   if (!userToken) {
     throw new Error('Cannot render user lists - no authenticated user.');
@@ -53,11 +54,16 @@ function UserLists() {
   const handleFormSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+
       if (chosenListIndex !== undefined && userToken && listSummary) {
         if (listSummary[chosenListIndex].filmCount < 10) {
           setListLengthMessage(listTooShortMessages[Math.floor(Math.random() * listTooShortMessages.length)]);
           return;
         }
+        setFormSubmitting(true);
+        setTimeout(() => {
+          setFormSubmitting(false);
+        }, 2000);
         SortList(userToken.Token, listSummary[chosenListIndex])
           .then((lwi) => {
             setList(lwi);
@@ -139,8 +145,9 @@ function UserLists() {
           </div>
           <button
             type='submit'
-            className='hover:text-teal-400 hover:translate-x-0.5 transition-all font-semibold border-b-[1px] border-indigo-500'>
-            Let&apos;s Sort!
+            disabled={formSubmitting}
+            className='enabled:hover:text-teal-400 enabled:hover:translate-x-0.5 transition-all disabled:text-gray-500 font-semibold border-b-[1px] border-indigo-500'>
+            {formSubmitting ? 'Please wait...' : `Let's Sort!`}
           </button>
           <p className='text-xs text-red-400 absolute'>{listLengthMessage}</p>
         </form>

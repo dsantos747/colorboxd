@@ -1,7 +1,7 @@
 import { useCallback, useContext, useState } from 'react';
 import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import { WriteSortedList } from '../actions/actions';
-import { HappyButton, SadButton } from './authButtons';
+import { HappyButton, SadButton } from './buttons';
 
 const sorts = [
   { id: 'hue', name: 'Hue-Based Sort' },
@@ -22,18 +22,24 @@ export default function ListPreview() {
   const { list, setList } = useContext(ListContext) as ListContextType;
   const [currSort, setCurrSort] = useState<SortModeType>({ sortMode: { id: 'hue', name: 'Hue-Based Sort' }, visible: true });
   const [startIndex, setStartIndex] = useState<number>(0);
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   const handleSaveList = useCallback(() => {
     if (userToken && list) {
+      setSubmitting(true);
+      setTimeout(() => {
+        setSubmitting(false);
+      }, 2000);
       WriteSortedList(userToken.Token, list, startIndex)
         .then((message) => {
-          console.log(message);
+          // console.log(message);
           setStartIndex(0);
           setList(null);
         })
         .catch((error) => {
           console.error('Error writing sorted list to letterboxd account:', error);
         });
+      // setSubmitting(false);
     }
   }, [userToken, list, setList, startIndex]);
 
@@ -85,7 +91,7 @@ export default function ListPreview() {
       </div>
 
       {/* Need to determine a better method of defining the height of the frame */}
-      <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide md:h-[60vh] my-4'>
+      <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 overflow-y-auto scrollbar-hide md:h-[60vh] my-4'>
         {list?.entries.map((l, i) => {
           const ind = (i + startIndex) % list.entries.length; // Use this to determine starting image
           return (
@@ -105,7 +111,9 @@ export default function ListPreview() {
       <div className='bg-gradient-to-r from-blue-600 via-teal-500 to-lime-500 h-0.5 w-full' />
       <div className='w-max mx-auto mt-4 space-x-2'>
         <SadButton handleClick={handleCancel}>Cancel</SadButton>
-        <HappyButton handleClick={handleSaveList}>Save List</HappyButton>
+        <HappyButton handleClick={handleSaveList} disabled={submitting}>
+          Save List
+        </HappyButton>
       </div>
     </>
   );

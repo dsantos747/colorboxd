@@ -20,7 +20,7 @@ const Home = () => {
       </div>
       <h1 className='sm:hidden text-xl mb-6'>Letterboxd lists, but {colorHighlight('prettier.')}</h1>
       <div>
-        <ColorScroll></ColorScroll>
+        <ColorScroll />
       </div>
     </div>
   );

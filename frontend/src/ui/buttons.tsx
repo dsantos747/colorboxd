@@ -4,10 +4,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
 
 const happyButtonStyle =
-  'text-sm sm:text-base py-2 px-3 sm:px-5 h-min rounded-lg bg-gray-700 bg-opacity-50 text-teal-400 hover:bg-teal-800 hover:text-white active:bg-teal-700 active:text-white transition-colors duration-200';
+  'text-sm sm:text-base py-2 px-3 sm:px-5 h-min rounded-lg bg-gray-700 bg-opacity-50 text-teal-400 enabled:hover:bg-teal-800 enabled:hover:text-white enabled:active:bg-teal-700 enabled:active:text-white disabled:bg-opacity-20 disabled:text-gray-400 transition-colors duration-200';
 
 const sadButtonStyle =
-  'text-sm sm:text-base py-2 px-3 sm:px-5 h-min rounded-lg bg-gray-700 bg-opacity-50 text-orange-500 hover:bg-opacity-20 hover:text-gray-400 active:bg-opacity-10 active:text-gray-500 transition-all duration-200';
+  'text-sm sm:text-base py-2 px-3 sm:px-5 h-min rounded-lg bg-gray-700 bg-opacity-50 text-orange-500 enabled:hover:bg-opacity-20 enabled:hover:text-gray-400 enabled:active:bg-opacity-10 enabled:active:text-gray-500 disabled:bg-opacity-20 disabled:text-gray-400 transition-all duration-200';
 
 const LoginButton = () => {
   return (
@@ -37,20 +37,21 @@ const SignOutButton = () => {
 type ButtonProps = {
   readonly handleClick: any;
   readonly type?: 'button' | 'submit' | 'reset';
+  readonly disabled?: boolean;
   readonly children: ReactNode;
 };
 
-const HappyButton = ({ handleClick, type = 'button', children }: ButtonProps) => {
+const HappyButton = ({ handleClick, type = 'button', disabled = false, children }: ButtonProps) => {
   return (
-    <button onClick={handleClick} className={`${happyButtonStyle} `} type={type}>
+    <button onClick={handleClick} className={`${happyButtonStyle} `} type={type} disabled={disabled}>
       {children}
     </button>
   );
 };
 
-const SadButton = ({ handleClick, type = 'button', children }: ButtonProps) => {
+const SadButton = ({ handleClick, type = 'button', disabled = false, children }: ButtonProps) => {
   return (
-    <button onClick={handleClick} className={`${sadButtonStyle} `} type={type}>
+    <button onClick={handleClick} className={`${sadButtonStyle} `} type={type} disabled={disabled}>
       {children}
     </button>
   );

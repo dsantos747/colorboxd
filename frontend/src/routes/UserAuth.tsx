@@ -24,7 +24,6 @@ function UserAuth() {
           const cookieToken: UserToken = JSON.parse(cookieUserToken);
           setUserToken(cookieToken);
         } else if (authCode) {
-          Cookies.set('authCode', authCode, { expires: 30 });
           try {
             const fetchUserToken = await GetAccessTokenAndUser(authCode);
             setUserToken(fetchUserToken);
@@ -35,7 +34,8 @@ function UserAuth() {
           window.location.href = authorisationUrl;
         }
       } else if (authCode) {
-        // Remove authcode from params
+        // Remove authcode from params. Add to cookie for when working on localhost
+        Cookies.set('authCode', authCode, { expires: 30 });
         const { pathname, search } = location;
         const updatedQueryParams = new URLSearchParams(search);
         updatedQueryParams.delete('code');
