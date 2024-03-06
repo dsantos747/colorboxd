@@ -1,10 +1,3 @@
-# Letterboxd Hue Sort
+# Colorboxd
 
-A script for sorting a Letterboxd List by the dominant hue of each film's poster
-
-## Usage
-
-1. Set the correct input directory (where your images are stored) in main.go
-2. Build and run
-3. Review dominant hue information in output.html
-4. Review images ordered by hue in sortedImages.html
+A web app for sorting your Letterboxd lists by the color of each film's poster
