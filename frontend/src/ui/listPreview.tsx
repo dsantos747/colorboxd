@@ -79,6 +79,7 @@ export default function ListPreview() {
       setImgLoadState(true);
     }
 
+    setImgLoadState(false);
     loadImages();
   }, [list]);
 
@@ -129,10 +130,10 @@ export default function ListPreview() {
             );
           })}
         {!imgLoadState &&
-          Array.from({ length: 10 }).map((_, i) => {
+          Array.from({ length: list?.entries.length ?? 10 }).map((_, i) => {
             return (
-              <div key={i} className='m-1 text-center bg-gray-500 bg-opacity-50'>
-                Loading...
+              <div key={i} className='m-1 text-center max-h-56 max-w-36 aspect-[2/3] '>
+                <div className=' w-full h-full  bg-gray-500 bg-opacity-20 animate-pulse'> </div>
               </div>
             );
           })}
