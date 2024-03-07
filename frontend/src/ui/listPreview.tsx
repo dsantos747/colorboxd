@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import { WriteSortedList } from '../actions/actions';
 import { HappyButton, SadButton } from './buttons';
@@ -23,6 +23,7 @@ export default function ListPreview() {
   const [currSort, setCurrSort] = useState<SortModeType>({ sortMode: { id: 'hue', name: 'Hue-Based Sort' }, visible: true });
   const [startIndex, setStartIndex] = useState<number>(0);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [imgLoadState, setImgLoadState] = useState<boolean>(false);
 
   const handleSaveList = useCallback(() => {
     if (userToken && list) {
@@ -60,6 +61,27 @@ export default function ListPreview() {
     }
   }, []);
 
+  useEffect(() => {
+    async function loadImages() {
+      if (list?.entries) {
+        await Promise.all(
+          list?.entries.map(
+            (entry) =>
+              new Promise((resolve, reject) => {
+                const img = new Image();
+                img.src = entry.posterUrl;
+                img.onload = resolve;
+                img.onerror = reject;
+              })
+          )
+        );
+      }
+      setImgLoadState(true);
+    }
+
+    loadImages();
+  }, [list]);
+
   return (
     <div className='mx-auto max-w-6xl'>
       <div className='flex flex-wrap justify-between'>
@@ -90,22 +112,30 @@ export default function ListPreview() {
         </form>
       </div>
 
-      {/* Need to determine a better method of defining the height of the frame */}
       <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide md:h-[60vh] my-4 mx-auto'>
-        {list?.entries.map((l, i) => {
-          const ind = (i + startIndex) % list.entries.length; // Use this to determine starting image
-          return (
-            <div key={l.entryId} className='m-1 text-center'>
-              <button
-                type='button'
-                onClick={() => {
-                  setStartIndex(ind);
-                }}>
-                <img src={list.entries[ind].posterUrl} alt={list.entries[ind].name} />
-              </button>
-            </div>
-          );
-        })}
+        {imgLoadState &&
+          list?.entries.map((l, i) => {
+            const ind = (i + startIndex) % list.entries.length; // Use this to determine starting image
+            return (
+              <div key={l.entryId} className='m-1 text-center'>
+                <button
+                  type='button'
+                  onClick={() => {
+                    setStartIndex(ind);
+                  }}>
+                  <img src={list.entries[ind].posterUrl} alt={list.entries[ind].name} />
+                </button>
+              </div>
+            );
+          })}
+        {!imgLoadState &&
+          Array.from({ length: 10 }).map((_, i) => {
+            return (
+              <div key={i} className='m-1 text-center bg-gray-500 bg-opacity-50'>
+                Loading...
+              </div>
+            );
+          })}
       </div>
 
       <div className='bg-gradient-to-r from-blue-600 via-teal-500 to-lime-500 h-0.5 w-full' />
