@@ -147,7 +147,7 @@ function UserLists() {
             type='submit'
             disabled={formSubmitting}
             className='enabled:hover:text-teal-400 enabled:hover:translate-x-0.5 transition-all disabled:text-gray-500 font-semibold border-b-[1px] border-indigo-500'>
-            {formSubmitting ? 'Please wait...' : `Let's Sort!`}
+            {formSubmitting ? 'Please wait...' : "Let's Sort!"}
           </button>
           <p className='text-xs text-red-400 absolute'>{listLengthMessage}</p>
         </form>

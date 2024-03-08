@@ -216,7 +216,6 @@ func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
 
 	message, err := writeListSorting(responseData.AccessToken, responseData.List.ID, *listUpdateRequest)
 	if err != nil {
-		fmt.Println("b", err)
 		http.Error(w, "Error updating user list", http.StatusInternalServerError)
 		return
 	}

@@ -33,9 +33,12 @@ export default function ListPreview() {
       }, 2000);
       WriteSortedList(userToken.Token, list, startIndex)
         .then((message) => {
-          // console.log(message);
-          setStartIndex(0);
-          setList(null);
+          if (message[0].startsWith('List updated successfully')) {
+            setStartIndex(0);
+            setList(null);
+          } else {
+            console.error(message);
+          }
         })
         .catch((error) => {
           console.error('Error writing sorted list to letterboxd account:', error);
@@ -80,7 +83,9 @@ export default function ListPreview() {
     }
 
     setImgLoadState(false);
-    loadImages();
+    loadImages().catch((e) => {
+      console.error('Error loading images:', e);
+    });
   }, [list]);
 
   return (

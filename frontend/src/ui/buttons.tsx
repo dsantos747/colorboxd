@@ -35,7 +35,7 @@ const SignOutButton = () => {
 };
 
 type ButtonProps = {
-  readonly handleClick: any;
+  readonly handleClick: React.MouseEventHandler<HTMLButtonElement>;
   readonly type?: 'button' | 'submit' | 'reset';
   readonly disabled?: boolean;
   readonly children: ReactNode;

@@ -42,7 +42,9 @@ function UserAuth() {
         navigate(`${pathname}?${updatedQueryParams.toString()}`);
       }
     };
-    handleTokenStatus();
+    handleTokenStatus().catch((e) => {
+      console.error('Error handling user authorisation:', e);
+    });
   }, [authCode, userToken, setUserToken, authorisationUrl, location, navigate]);
 
   return userToken && <UserContent />;
