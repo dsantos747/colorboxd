@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import ComingSoon from '../routes/ComingSoon';
+import Home from '../routes/Home';
 
-test('renders coming soon text', () => {
-  render(<ComingSoon />);
-  const comingSoon = screen.getByText(/ColorBoxd is under construction./i);
-  expect(comingSoon).toBeInTheDocument();
+test('renders slogan text', () => {
+  render(<Home />);
+  const slogan = screen.getByAltText(/A list sorted with Colorboxd/i);
+  expect(slogan).toBeInTheDocument();
 });
