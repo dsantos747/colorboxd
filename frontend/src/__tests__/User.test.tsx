@@ -11,7 +11,7 @@ jest.mock('react-router-dom', () => ({
 const mockNavigate = jest.fn();
 require('react-router-dom').useNavigate.mockImplementation(() => mockNavigate);
 
-const mockToken: UserToken = {
+const testToken: UserToken = {
   Token: 'token',
   TokenExpiresIn: 1000,
   TokenRefresh: 'refresh',
@@ -21,7 +21,7 @@ const mockToken: UserToken = {
   Username: 'JohnDoe123',
 };
 
-const mockListSummary: ListSummary[] = [
+const testListSummary: ListSummary[] = [
   { id: '1', description: 'List 1 with 5 films', filmCount: 5, name: 'List 1', version: 1 },
   { id: '2', description: 'List 2 with 10 films', filmCount: 10, name: 'List 2', version: 1 },
   { id: '3', description: 'List 3 with 50 films', filmCount: 50, name: 'List 3', version: 1 },
@@ -47,32 +47,33 @@ const testList: List = {
     },
   ],
 };
-const mockList: List | null = null;
 
-const mockUserPage = (
-  <UserTokenContext.Provider value={{ userToken: mockToken, setUserToken: jest.fn() }}>
-    <ListSummaryContext.Provider value={{ listSummary: mockListSummary, setListSummary: jest.fn() }}>
-      <ListContext.Provider value={{ list: mockList, setList: jest.fn() }}>
-        <MemoryRouter>
-          <UserAuth />
-        </MemoryRouter>
-      </ListContext.Provider>
-    </ListSummaryContext.Provider>
-  </UserTokenContext.Provider>
-);
+const mockUserPage = (mockToken: UserToken | null, mockList: List | null) => {
+  return (
+    <UserTokenContext.Provider value={{ userToken: mockToken, setUserToken: jest.fn() }}>
+      <ListSummaryContext.Provider value={{ listSummary: testListSummary, setListSummary: jest.fn() }}>
+        <ListContext.Provider value={{ list: mockList, setList: jest.fn() }}>
+          <MemoryRouter>
+            <UserAuth />
+          </MemoryRouter>
+        </ListContext.Provider>
+      </ListSummaryContext.Provider>
+    </UserTokenContext.Provider>
+  );
+};
 
 test('renders john doe user page, with 3 lists', () => {
-  render(mockUserPage);
-  const listLabel1 = screen.getByText(mockListSummary[0].name);
-  const listLabel2 = screen.getByText(mockListSummary[1].name);
-  const listLabel3 = screen.getByText(mockListSummary[2].name);
+  render(mockUserPage(testToken, null));
+  const listLabel1 = screen.getByText(testListSummary[0].name);
+  const listLabel2 = screen.getByText(testListSummary[1].name);
+  const listLabel3 = screen.getByText(testListSummary[2].name);
   expect(listLabel1).toBeInTheDocument();
   expect(listLabel2).toBeInTheDocument();
   expect(listLabel3).toBeInTheDocument();
 });
 
-// Finish this one
 test('sets active list, expect ui change', () => {
-  render(mockUserPage);
-  const mockList: List = testList;
+  render(mockUserPage(testToken, testList));
+  const hintText = screen.getByText(/Hint: Click an item to make it the start of the list./i);
+  expect(hintText).toBeInTheDocument;
 });

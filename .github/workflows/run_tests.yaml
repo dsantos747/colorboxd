@@ -1,0 +1,50 @@
+name: CI Tests
+on:
+  push:
+    branches:
+      - main
+jobs:
+  frontendTest:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🔎 Running Frontend CI Tests"
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Run Frontend Tests
+        run: |
+          cd frontend
+          npm run test
+
+      - run: echo "This job's status is ${{ job.status }}."
+
+  backendTest:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🔎 Running Backend CI Tests"
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+
+      - name: Run Backend Tests
+        run: |
+          cd backend
+          go test
+
+      - run: echo "This job's status is ${{ job.status }}."
