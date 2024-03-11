@@ -4,12 +4,11 @@ import UserAuth from '../routes/UserAuth';
 import { List, ListSummary, UserToken } from '../lib/definitions';
 import { MemoryRouter } from 'react-router-dom';
 
+const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-  useNavigate: jest.fn(),
+  useNavigate: () => mockNavigate,
 }));
-const mockNavigate = jest.fn();
-require('react-router-dom').useNavigate.mockImplementation(() => mockNavigate);
 
 const testToken: UserToken = {
   Token: 'token',
@@ -75,5 +74,5 @@ test('renders john doe user page, with 3 lists', () => {
 test('sets active list, expect ui change', () => {
   render(mockUserPage(testToken, testList));
   const hintText = screen.getByText(/Hint: Click an item to make it the start of the list./i);
-  expect(hintText).toBeInTheDocument;
+  expect(hintText).toBeInTheDocument();
 });
