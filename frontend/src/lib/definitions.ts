@@ -42,3 +42,18 @@ interface ImageInfo {
   };
   Hue: number;
 }
+
+export const sorts = [
+  { id: 'hue', name: 'Hue-Based Sort' },
+  { id: 'step', name: 'Alternating Step Sort' },
+  { id: 'hilbert', name: 'Hilbert Sort' },
+  { id: 'cie2000', name: 'CIELAB2000 Sort' },
+] as const;
+
+type SortTypes = (typeof sorts)[number];
+
+export type SortModeType = {
+  sortMode: SortTypes;
+  visible: boolean;
+  reverse: boolean;
+};

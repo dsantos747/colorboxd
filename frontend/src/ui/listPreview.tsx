@@ -1,26 +1,23 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import { WriteSortedList } from '../actions/actions';
-import { HappyButton, SadButton } from './buttons';
+import { Button } from './buttons';
+import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/16/solid';
+import { SortModeType, sorts } from '../lib/definitions';
 
-const sorts = [
-  { id: 'hue', name: 'Hue-Based Sort' },
-  { id: 'step', name: 'Alternating Step Sort' },
-  { id: 'hilbert', name: 'Hilbert Sort' },
-  { id: 'cie2000', name: 'CIELAB2000 Sort' },
-] as const;
-
-type SortTypes = (typeof sorts)[number];
-
-type SortModeType = {
-  sortMode: SortTypes;
-  visible: boolean;
-};
+function calcIndex(i: number, startIndex: number, len: number, reverse: boolean) {
+  const ind = reverse ? (len - i) % len : i;
+  return (ind + startIndex) % len;
+}
 
 export default function ListPreview() {
   const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
   const { list, setList } = useContext(ListContext) as ListContextType;
-  const [currSort, setCurrSort] = useState<SortModeType>({ sortMode: { id: 'hue', name: 'Hue-Based Sort' }, visible: true });
+  const [currSort, setCurrSort] = useState<SortModeType>({
+    sortMode: { id: 'hue', name: 'Hue-Based Sort' },
+    visible: true,
+    reverse: false,
+  });
   const [startIndex, setStartIndex] = useState<number>(0);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [imgLoadState, setImgLoadState] = useState<boolean>(false);
@@ -31,7 +28,7 @@ export default function ListPreview() {
       setTimeout(() => {
         setSubmitting(false);
       }, 2000);
-      WriteSortedList(userToken.Token, list, startIndex)
+      WriteSortedList(userToken.Token, list, startIndex, currSort.sortMode.id, currSort.reverse)
         .then((message) => {
           if (message[0].startsWith('List updated successfully')) {
             setStartIndex(0);
@@ -45,7 +42,7 @@ export default function ListPreview() {
         });
       // setSubmitting(false);
     }
-  }, [userToken, list, setList, startIndex]);
+  }, [userToken, list, setList, startIndex, currSort]);
 
   const handleCancel = useCallback(() => {
     if (userToken && list) {
@@ -54,13 +51,17 @@ export default function ListPreview() {
   }, [userToken, list, setList]);
 
   const handleShowOriginal = useCallback(() => {
-    setCurrSort({ sortMode: currSort.sortMode, visible: !currSort.visible });
+    setCurrSort({ sortMode: currSort.sortMode, visible: !currSort.visible, reverse: currSort.reverse });
+  }, [currSort]);
+
+  const handleReverseOrder = useCallback(() => {
+    setCurrSort({ sortMode: currSort.sortMode, visible: currSort.visible, reverse: !currSort.reverse });
   }, [currSort]);
 
   const handleSortChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedMode = sorts.find((s) => s.id === e.target.value);
     if (selectedMode) {
-      setCurrSort({ sortMode: selectedMode, visible: true });
+      setCurrSort({ sortMode: selectedMode, visible: true, reverse: false });
     }
   }, []);
 
@@ -82,6 +83,8 @@ export default function ListPreview() {
       setImgLoadState(true);
     }
 
+    setStartIndex(0);
+    setCurrSort({ sortMode: currSort.sortMode, visible: true, reverse: false });
     setImgLoadState(false);
     loadImages().catch((e) => {
       console.error('Error loading images:', e);
@@ -115,13 +118,19 @@ export default function ListPreview() {
               );
             })}
           </select>
+          <div className='mx-auto'>
+            <input type='checkbox' id='reverseOrder' className='hidden peer' checked={currSort.reverse} onChange={handleReverseOrder} />
+            <label htmlFor='reverseOrder' className='cursor-pointer'>
+              {currSort.reverse ? <ArrowUpIcon className='h-5 w-5' /> : <ArrowDownIcon className='h-5 w-5' />}
+            </label>
+          </div>
         </form>
       </div>
 
       <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide md:h-[60vh] my-4 mx-auto'>
         {imgLoadState &&
           list?.entries.map((l, i) => {
-            const ind = (i + startIndex) % list.entries.length; // Use this to determine starting image
+            const ind = calcIndex(i, startIndex, list.entries.length, currSort.reverse);
             return (
               <div key={l.entryId} className='m-1 text-center'>
                 <button
@@ -146,10 +155,12 @@ export default function ListPreview() {
 
       <div className='bg-gradient-to-r from-blue-600 via-teal-500 to-lime-500 h-0.5 w-full' />
       <div className='w-max mx-auto mt-4 space-x-2'>
-        <SadButton handleClick={handleCancel}>Cancel</SadButton>
-        <HappyButton handleClick={handleSaveList} disabled={submitting}>
+        <Button theme='sad' handleClick={handleCancel}>
+          Cancel
+        </Button>
+        <Button theme='happy' handleClick={handleSaveList} disabled={submitting}>
           Save List
-        </HappyButton>
+        </Button>
       </div>
     </div>
   );

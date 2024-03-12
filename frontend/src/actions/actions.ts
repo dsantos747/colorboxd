@@ -86,10 +86,17 @@ async function SortList(accessToken: string, listSummary: ListSummary, refresh =
   return list;
 }
 
-async function WriteSortedList(accessToken: string, list: List, offset: number, refresh = false): Promise<string> {
+async function WriteSortedList(
+  accessToken: string,
+  list: List,
+  offset: number,
+  sortMethod = 'hue',
+  reverse = false,
+  refresh = false
+): Promise<string> {
   const cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
-  const requestBody = { accessToken, list, offset };
+  const requestBody = { accessToken, list, offset, sortMethod, reverse };
 
   const response = await fetch(`${BACKEND_URL2}WriteList`, {
     method: 'POST',

@@ -36,25 +36,19 @@ const SignOutButton = () => {
 
 type ButtonProps = {
   readonly handleClick: React.MouseEventHandler<HTMLButtonElement>;
+  readonly theme: 'happy' | 'sad';
   readonly type?: 'button' | 'submit' | 'reset';
   readonly disabled?: boolean;
   readonly children: ReactNode;
 };
 
-const HappyButton = ({ handleClick, type = 'button', disabled = false, children }: ButtonProps) => {
+const Button = ({ handleClick, theme, type = 'button', disabled = false, children }: ButtonProps) => {
+  const buttonStyle = theme === 'happy' ? happyButtonStyle : theme === 'sad' ? sadButtonStyle : '';
   return (
-    <button onClick={handleClick} className={`${happyButtonStyle} `} type={type} disabled={disabled}>
+    <button onClick={handleClick} className={buttonStyle} type={type} disabled={disabled}>
       {children}
     </button>
   );
 };
 
-const SadButton = ({ handleClick, type = 'button', disabled = false, children }: ButtonProps) => {
-  return (
-    <button onClick={handleClick} className={`${sadButtonStyle} `} type={type} disabled={disabled}>
-      {children}
-    </button>
-  );
-};
-
-export { LoginButton, SignOutButton, HappyButton, SadButton };
+export { LoginButton, SignOutButton, Button };
