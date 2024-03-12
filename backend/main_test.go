@@ -33,7 +33,7 @@ func TestGetRedImageInfo(t *testing.T) {
 	if redImageInfo.ImageInfo.Hex != expectedHex {
 		t.Errorf("Expected hex %v, computed %v.", expectedHex, redImageInfo.ImageInfo.Hex)
 	}
-	if redImageInfo.ImageInfo.Hue != expectedHue {
-		t.Errorf("Expected hue %v, computed %v.", expectedHue, redImageInfo.ImageInfo.Hue)
+	if redImageInfo.ImageInfo.HSV.h != expectedHue {
+		t.Errorf("Expected hue %v, computed %v.", expectedHue, redImageInfo.ImageInfo.HSV.h)
 	}
 }

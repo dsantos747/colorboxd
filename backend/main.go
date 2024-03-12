@@ -169,10 +169,16 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slices.SortFunc[[]Entry](*entriesWithImageInfo, func(a, b Entry) int { return cmp.Compare[float64](a.ImageInfo.Hue, b.ImageInfo.Hue) })
+	entriesWithRanking, err := assignListRankings(entriesWithImageInfo)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error assigning sort rankings for list: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// slices.SortFunc[[]Entry](*entriesWithRanking, func(a, b Entry) int { return cmp.Compare[float64](a.ImageInfo.Hue, b.ImageInfo.Hue) })
 
 	response := map[string][]Entry{
-		"items": *entriesWithImageInfo,
+		"items": *entriesWithRanking,
 	}
 
 	// Return response to client
@@ -405,6 +411,20 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 	return &entrySlice, nil
 }
 
+func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
+	slices.SortFunc[[]Entry](*listEntries, func(a, b Entry) int { return cmp.Compare[float64](a.ImageInfo.HSV.v, b.ImageInfo.HSV.v) })
+	for i := range *listEntries {
+		(*listEntries)[i].Ranks.Val = i
+	}
+
+	slices.SortFunc[[]Entry](*listEntries, func(a, b Entry) int { return cmp.Compare[float64](a.ImageInfo.HSV.h, b.ImageInfo.HSV.h) })
+	for i := range *listEntries {
+		(*listEntries)[i].Ranks.Hue = i
+	}
+
+	return listEntries, nil
+}
+
 // Taking a sorted list, return a ListUpdateRequest, as required by Letterboxd endpoint
 func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod string, reverse bool) (*ListUpdateRequest, error) {
 	n := len(list.Entries)
@@ -579,11 +599,13 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 
 	hex := "#" + domColor
 	color, _ := colorful.Hex(hex)
-	hue, _, _ := color.Hsv()
+	hue, sat, val := color.Hsv()
 
 	entry.ImageInfo.Hex = hex
 	entry.ImageInfo.Color = color
-	entry.ImageInfo.Hue = hue
+	entry.ImageInfo.HSV.h = hue
+	entry.ImageInfo.HSV.s = sat
+	entry.ImageInfo.HSV.v = val
 
 	return &entry, nil
 }
