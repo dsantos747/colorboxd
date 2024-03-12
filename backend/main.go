@@ -34,7 +34,7 @@ func init() {
 func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// Read env variables - local development only
+	// Read env variables - local development only - comment out for production
 	err = godotenv.Load()
 	if err != nil {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
@@ -89,7 +89,7 @@ func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
 func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// Read env variables - local development only
+	// Read env variables - local development only - comment out for production
 	err = godotenv.Load()
 	if err != nil {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
@@ -130,7 +130,7 @@ func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
 func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// Read env variables - local development only
+	// Read env variables - local development only - comment out for production
 	err = godotenv.Load()
 	if err != nil {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
@@ -183,7 +183,7 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// Read env variables - local development only
+	// Read env variables - local development only - comment out for production
 	err = godotenv.Load()
 	if err != nil {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
@@ -304,31 +304,36 @@ func GetUserLists(token, id string) (*[]ListSummary, error) {
 }
 
 func GetListEntries(token, id string) (*[]Entry, error) {
+	nextCursor := "start=0"
 	method := "GET"
 	endpoint := fmt.Sprintf("%s/list/%s/entries", os.Getenv("LBOXD_BASEURL"), id)
-	query := "?perPage=100"
-	url := endpoint + query
 	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)}
+	var listEntriesData []ListEntries
 
-	response, err := MakeHTTPRequest(method, url, nil, headers)
-	if err != nil {
-		return nil, err
-	}
+	for {
+		query := fmt.Sprintf("?cursor=%s&perPage=100", nextCursor)
+		url := endpoint + query
 
-	defer response.Body.Close()
+		response, err := MakeHTTPRequest(method, url, nil, headers)
+		if err != nil {
+			return nil, fmt.Errorf("error making HTTP request: %v", err)
+		}
+		defer response.Body.Close()
 
-	// Raw decode
-	var responseData map[string]json.RawMessage
-	if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
+		// Raw decode
+		var responseData ListEntriesResponse
+		if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
+			fmt.Println(err)
+			return nil, fmt.Errorf("error decoding letterboxd list entries JSON response: %v", err)
+		}
 
-	// Cast items to type
-	var listEntriesData []ListEntriesResponse
-	if err = json.Unmarshal(responseData["items"], &listEntriesData); err != nil {
-		fmt.Println(err)
-		return nil, err
+		listEntriesData = append(listEntriesData, responseData.Items...)
+
+		// Break if no further entries
+		if responseData.Next == "" {
+			break
+		}
+		nextCursor = responseData.Next
 	}
 
 	// Extract relevant info from each item into []Entry format
