@@ -208,7 +208,7 @@ func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	listUpdateRequest, err := prepareListUpdateRequest(responseData.List, responseData.Offset, "")
+	listUpdateRequest, err := prepareListUpdateRequest(responseData.List, responseData.Offset, responseData.SortMethod, responseData.Reverse)
 	if err != nil {
 		http.Error(w, "Error preparing list update request body", http.StatusInternalServerError)
 		return
@@ -406,7 +406,7 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 }
 
 // Taking a sorted list, return a ListUpdateRequest, as required by Letterboxd endpoint
-func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod string) (*ListUpdateRequest, error) {
+func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod string, reverse bool) (*ListUpdateRequest, error) {
 	n := len(list.Entries)
 	currentPositions := make(map[string]int)
 	finishSlice := []FilmTargetPosition{}
@@ -418,6 +418,9 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 			return nil, err
 		}
 		endPos := ((i + n) - offset) % n
+		if reverse {
+			endPos = (n - endPos) % n
+		}
 
 		currentPositions[entry.FilmID] = initPos
 		finishSlice = append(finishSlice, FilmTargetPosition{entry.FilmID, endPos})

@@ -56,12 +56,10 @@ type ListEntriesResponse struct {
 	Next  string        `json:"next"`
 	Items []ListEntries `json:"items"`
 }
-
 type ListEntries struct {
 	EntryID string `json:"entryId"`
 	Film    film   `json:"film"`
 }
-
 type film struct {
 	Adult              bool     `json:"adult"`
 	ID                 string   `json:"id"`
@@ -112,6 +110,8 @@ type WriteListRequest struct {
 	AccessToken string          `json:"accessToken"`
 	List        ListWithEntries `json:"list"` // This being ListWithEntries (rather than any) is what is causing the error
 	Offset      int             `json:"offset"`
+	SortMethod  string          `json:"sortMethod"`
+	Reverse     bool            `json:"reverse"`
 }
 type ListWithEntries struct {
 	ListSummary
