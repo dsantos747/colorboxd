@@ -310,7 +310,8 @@ func GetListEntries(token, id string) (*[]Entry, error) {
 	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)}
 	var listEntriesData []ListEntries
 
-	for {
+	// Loop until no "next" pagination cursor is present in response
+	for len(nextCursor) > 0 {
 		query := fmt.Sprintf("?cursor=%s&perPage=100", nextCursor)
 		url := endpoint + query
 
@@ -318,21 +319,16 @@ func GetListEntries(token, id string) (*[]Entry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error making HTTP request: %v", err)
 		}
-		defer response.Body.Close()
 
-		// Raw decode
 		var responseData ListEntriesResponse
 		if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
+			response.Body.Close()
 			fmt.Println(err)
 			return nil, fmt.Errorf("error decoding letterboxd list entries JSON response: %v", err)
 		}
 
+		response.Body.Close()
 		listEntriesData = append(listEntriesData, responseData.Items...)
-
-		// Break if no further entries
-		if responseData.Next == "" {
-			break
-		}
 		nextCursor = responseData.Next
 	}
 
