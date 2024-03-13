@@ -14,7 +14,7 @@ export default function ListPreview() {
   const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
   const { list, setList } = useContext(ListContext) as ListContextType;
   const [currSort, setCurrSort] = useState<SortModeType>({
-    sortMode: { id: 'hue', name: 'Hue-Based Sort' },
+    sortMode: { id: 'hue', name: 'Hue' },
     visible: true,
     reverse: false,
   });
@@ -40,7 +40,6 @@ export default function ListPreview() {
         .catch((error) => {
           console.error('Error writing sorted list to letterboxd account:', error);
         });
-      // setSubmitting(false);
     }
   }, [userToken, list, setList, startIndex, currSort]);
 
@@ -58,12 +57,19 @@ export default function ListPreview() {
     setCurrSort({ sortMode: currSort.sortMode, visible: currSort.visible, reverse: !currSort.reverse });
   }, [currSort]);
 
-  const handleSortChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedMode = sorts.find((s) => s.id === e.target.value);
-    if (selectedMode) {
-      setCurrSort({ sortMode: selectedMode, visible: true, reverse: false });
-    }
-  }, []);
+  const handleSortChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const selectedMode = sorts.find((s) => s.id === e.target.value);
+      if (selectedMode) {
+        setStartIndex(0);
+        setCurrSort({ sortMode: selectedMode, visible: true, reverse: false });
+        list?.entries.sort((a, b) => {
+          return a.sorts[selectedMode.id] - b.sorts[selectedMode.id];
+        });
+      }
+    },
+    [list]
+  );
 
   useEffect(() => {
     async function loadImages() {
@@ -84,7 +90,7 @@ export default function ListPreview() {
     }
 
     setStartIndex(0);
-    setCurrSort({ sortMode: currSort.sortMode, visible: true, reverse: false });
+    setCurrSort({ sortMode: sorts[0], visible: true, reverse: false });
     setImgLoadState(false);
     loadImages().catch((e) => {
       console.error('Error loading images:', e);

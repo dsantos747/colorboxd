@@ -83,6 +83,8 @@ async function SortList(accessToken: string, listSummary: ListSummary, refresh =
     entries: entryListWithImages,
   };
 
+  console.log(list);
+
   return list;
 }
 

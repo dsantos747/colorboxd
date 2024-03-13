@@ -1,9 +1,13 @@
+import { useContext } from 'react';
+import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import { LoginButton, SignOutButton } from './buttons';
 import ColorboxdLogo from './colorboxdLogo';
 import { Link, useLocation } from 'react-router-dom';
 
 const Nav = () => {
+  const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
   const location = useLocation();
+  const isOnUserPage = location.pathname.toLowerCase().startsWith('/user');
 
   return (
     <nav className='fixed w-screen bg-gradient-to-b from-gray-900 from-70% to-transparent z-10'>
@@ -13,7 +17,7 @@ const Nav = () => {
             <ColorboxdLogo />
           </h1>
         </Link>
-        {location.pathname.toLowerCase().startsWith('/user') ? <SignOutButton /> : <LoginButton />}
+        {isOnUserPage && userToken ? <SignOutButton /> : <LoginButton />}
       </div>
     </nav>
   );

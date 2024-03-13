@@ -30,6 +30,7 @@ export interface EntryWithImage {
   posterUrl: string;
   adultPosterUrl: string;
   ImageInfo: ImageInfo;
+  sorts: SortRanks;
 }
 
 interface ImageInfo {
@@ -44,13 +45,22 @@ interface ImageInfo {
 }
 
 export const sorts = [
-  { id: 'hue', name: 'Hue-Based Sort' },
-  { id: 'step', name: 'Alternating Step Sort' },
-  { id: 'hilbert', name: 'Hilbert Sort' },
-  { id: 'cie2000', name: 'CIELAB2000 Sort' },
+  { id: 'hue', name: 'Hue' },
+  { id: 'val', name: 'Luminosity' },
+  { id: 'brightHue', name: 'Bright Hue' },
+  { id: 'brightDomHue', name: 'Dominant Bright Hue' },
+  // { id: 'step', name: 'Alternating Step Sort' },
+  // { id: 'hilbert', name: 'Hilbert Sort' },
+  // { id: 'cie2000', name: 'CIELAB2000 Sort' },
 ] as const;
 
 type SortTypes = (typeof sorts)[number];
+
+type SortIds = SortTypes['id'];
+
+type SortRanks = {
+  [K in SortIds]: number;
+};
 
 export type SortModeType = {
   sortMode: SortTypes;
