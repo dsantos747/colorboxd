@@ -89,22 +89,29 @@ type Entry struct {
 	PosterURL          string `json:"posterUrl"`
 	AdultPosterURL     string `json:"adultPosterUrl"`
 	ImageInfo          ImageInfo
-	Ranks              SortRanks `json:"ranks"`
+	SortVals           SortVals `json:"sorts"`
 }
 
-type SortRanks struct {
-	Hue int `json:"hue"`
-	Val int `json:"val"`
+type SortVals struct {
+	Hue          float64 `json:"hue"`
+	Val          float64 `json:"val"`
+	BrightHue    float64 `json:"brightHue"`
+	BrightDomHue float64 `json:"brightDomHue"`
 }
 
 // An images path and colour information
 type ImageInfo struct {
-	Path  string
-	Hex   string
-	Color colorful.Color
-	HSV   struct {
-		h, s, v float64
-	}
+	Path   string
+	Colors []Color
+}
+type Color struct {
+	rgb   colorful.Color
+	hex   string
+	hsv   hsv
+	count int
+}
+type hsv struct {
+	h, s, v float64
 }
 
 // Holds a loaded image, alongside all information about that film entry

@@ -10,6 +10,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -175,7 +176,9 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// slices.SortFunc[[]Entry](*entriesWithRanking, func(a, b Entry) int { return cmp.Compare[float64](a.ImageInfo.Hue, b.ImageInfo.Hue) })
+	slices.SortFunc[[]Entry](*entriesWithRanking, func(a, b Entry) int {
+		return cmp.Compare[float64](a.ImageInfo.Colors[0].hsv.h, b.ImageInfo.Colors[0].hsv.h)
+	})
 
 	response := map[string][]Entry{
 		"items": *entriesWithRanking,
@@ -412,14 +415,48 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 }
 
 func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
-	slices.SortFunc[[]Entry](*listEntries, func(a, b Entry) int { return cmp.Compare[float64](a.ImageInfo.HSV.v, b.ImageInfo.HSV.v) })
-	for i := range *listEntries {
-		(*listEntries)[i].Ranks.Val = i
+
+	// This creates a surface plot of saturation and luminosity, tweaked with magic values such that
+	// if the resulting value is > 0 then it's an acceptable colour "brightness"
+	satLumSurface := func(S, L float64) float64 {
+		a := -5.6
+		b := -1.7
+		c := 5.18
+		d := 3.64
+		e := -2.13
+		return a*math.Pow(S, 2) + b*math.Pow(L, 2) + c*S + d*L + e
 	}
 
-	slices.SortFunc[[]Entry](*listEntries, func(a, b Entry) int { return cmp.Compare[float64](a.ImageInfo.HSV.h, b.ImageInfo.HSV.h) })
+	// Complete this function to return the first hue with acceptable brightness
+	algoBrightHue := func(colors []Color) float64 {
+		for _, col := range colors {
+			if satLumSurface(col.hsv.s, col.hsv.v) >= 0 {
+				return col.hsv.h
+			}
+		}
+		return colors[0].hsv.h
+	}
+
+	algoBrightDominantHue := func(colors []Color) float64 {
+		prevColorCount := 0.1
+		for _, col := range colors {
+			if satLumSurface(col.hsv.s, col.hsv.v) > 0 && float64(col.count)/prevColorCount > 0.5 {
+				return col.hsv.h
+			}
+			prevColorCount = float64(col.count)
+		}
+		return colors[0].hsv.h
+	}
+
+	// Could have another function that puts all white / black colors at the extremes. Could do this by
+	// subtracting or adding from the hue value, to put it outside the bounds of all remaining colours.
+	// Planned result would be having white (ordered from blue to red) - red to blue - black (ordered blue to red)
+
 	for i := range *listEntries {
-		(*listEntries)[i].Ranks.Hue = i
+		(*listEntries)[i].SortVals.Val = (*listEntries)[i].ImageInfo.Colors[0].hsv.v
+		(*listEntries)[i].SortVals.Hue = (*listEntries)[i].ImageInfo.Colors[0].hsv.h
+		(*listEntries)[i].SortVals.BrightHue = algoBrightHue((*listEntries)[i].ImageInfo.Colors)
+		(*listEntries)[i].SortVals.BrightDomHue = algoBrightDominantHue((*listEntries)[i].ImageInfo.Colors)
 	}
 
 	return listEntries, nil
@@ -427,9 +464,12 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 
 // Taking a sorted list, return a ListUpdateRequest, as required by Letterboxd endpoint
 func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod string, reverse bool) (*ListUpdateRequest, error) {
+
+	fmt.Print(sortMethod) // Silly call to silence unused var warning
+
 	n := len(list.Entries)
 	currentPositions := make(map[string]int)
-	finishSlice := []FilmTargetPosition{}
+	var finishSlice []FilmTargetPosition
 
 	for i, entry := range list.Entries {
 		initPos, err := strconv.Atoi(entry.EntryID)
@@ -457,6 +497,7 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 	return &request, nil
 }
 
+// Create a set of instructions that, applied in turn, result in the correctly-sorted list.
 func createListUpdateEntries(currentPositions map[string]int, finishPositions []FilmTargetPosition) []listUpdateEntry {
 	updateEntries := []listUpdateEntry{}
 	for _, film := range finishPositions {
@@ -556,11 +597,8 @@ func loadImageConcurrent(entry Entry, wg *sync.WaitGroup, imageChan chan<- Image
 
 func getDominantColors(k int, method int, img image.Image) (*[]prominentcolor.ColorItem, error) {
 	resizeSize := uint(prominentcolor.DefaultSize)
+	var bgmasks []prominentcolor.ColorBackgroundMask // No mask
 	// bgmasks := prominentcolor.GetDefaultMasks() // Default masks (black,white or green backgrounds)
-	bgmasks := []prominentcolor.ColorBackgroundMask{} // No mask
-	// Think it's best not to use a mask here. Can return a slice of dominant colours from
-	// this function, then, if the most dominant is very high/low luminosity, for example,
-	// can instead use the second most dominant colour
 
 	res, err := prominentcolor.KmeansWithAll(k, img, method, resizeSize, bgmasks)
 	if err != nil {
@@ -578,34 +616,24 @@ func getDominantColors(k int, method int, img image.Image) (*[]prominentcolor.Co
 func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	var method int = prominentcolor.ArgumentNoCropping // This is a constant
 
-	colors, err := getDominantColors(3, method, img)
+	domColors, err := getDominantColors(3, method, img)
 	if err != nil {
 		return nil, err
 	}
 
-	//
-	// Need to implement a function to identify the first most dominant colour with acceptable
-	// saturation and luminosity. If that isn't the most dominant colour, need to identify that
-	// so that the colour can be sorted into e.g. black + red. Also need to use the "count" parameter
-	// of the colors, to determine how much there is. Can then use this to assign a weighting to
-	// that colour.
-	// In principle, given this is a k-means method, the fitst colour shouldn't be too similar to
-	// the first or third, so should be able to extract some highlights.
-	//
-	// An alternative algorithm could be to choose somewhere in the hue scale to insert all the lights, and
-	// somewhere to insert all the darks. Then could run through all darks in highlight-colour order.
-	//
-	domColor := (*colors)[0].AsString() // Improve this
+	var currColor Color
+	var colors []Color
 
-	hex := "#" + domColor
-	color, _ := colorful.Hex(hex)
-	hue, sat, val := color.Hsv()
+	for _, c := range *domColors {
+		hex := "#" + c.AsString()
+		rgb, _ := colorful.Hex(hex)
+		hue, sat, val := rgb.Hsv()
 
-	entry.ImageInfo.Hex = hex
-	entry.ImageInfo.Color = color
-	entry.ImageInfo.HSV.h = hue
-	entry.ImageInfo.HSV.s = sat
-	entry.ImageInfo.HSV.v = val
+		currColor = Color{rgb: rgb, hex: hex, hsv: hsv{hue, sat, val}, count: c.Cnt}
+		colors = append(colors, currColor)
+	}
+
+	entry.ImageInfo.Colors = colors
 
 	return &entry, nil
 }
