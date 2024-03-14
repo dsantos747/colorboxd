@@ -11,20 +11,6 @@ async function GetAccessTokenAndUser(authCode: string, refresh = false): Promise
     return cookieData;
   }
 
-  /**
-   *
-   *
-   * IMPORTANT: Caching isn't really working, because a new authCode is being generated each time. This
-   * invalidates any method of caching tbh. Might be necessary to:
-   * - Upon first attempt, create authCode cookie. Need expiry time, check docs?
-   *             =Apparently, most use 30-60 second expiration times
-   *                  - In this case, is there any use in creating a cookie?
-   * - Next time you try to sign in, need to check if an authcode cookie exists
-   *     - If so, directly run this function using the existing authcode
-   *     - If not, redirect to sign in page (that then redirects with authCode in url query)
-   *
-   *
-   */
   const cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
   // Fetch access token from backend
@@ -82,8 +68,6 @@ async function SortList(accessToken: string, listSummary: ListSummary, refresh =
     ...listSummary,
     entries: entryListWithImages,
   };
-
-  console.log(list);
 
   return list;
 }

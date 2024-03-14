@@ -418,6 +418,10 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 
 	// This creates a surface plot of saturation and luminosity, tweaked with magic values such that
 	// if the resulting value is > 0 then it's an acceptable colour "brightness"
+
+	// BUG - HSV is not HSL!! silly.
+	// This function is based on the max occuring at L = 0.5, but V is
+	// a totally different box of frogs.
 	satLumSurface := func(S, L float64) float64 {
 		a := -5.6
 		b := -1.7
@@ -427,10 +431,12 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 		return a*math.Pow(S, 2) + b*math.Pow(L, 2) + c*S + d*L + e
 	}
 
-	// Complete this function to return the first hue with acceptable brightness
+	// Returns the most dominant hue with acceptable brightness
 	algoBrightHue := func(colors []Color) float64 {
 		for _, col := range colors {
+			// fmt.Printf(" %s:H%f:S%f:L%f>%f, ", col.hex, col.hsv.h, col.hsv.s, col.hsv.v, satLumSurface(col.hsv.s, col.hsv.v))
 			if satLumSurface(col.hsv.s, col.hsv.v) >= 0 {
+				// fmt.Print(" satisfies BrightHue")
 				return col.hsv.h
 			}
 		}
@@ -441,6 +447,7 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 		prevColorCount := 0.1
 		for _, col := range colors {
 			if satLumSurface(col.hsv.s, col.hsv.v) > 0 && float64(col.count)/prevColorCount > 0.5 {
+				// fmt.Printf(" colour %d satisfies BrightDominantHue", i+1)
 				return col.hsv.h
 			}
 			prevColorCount = float64(col.count)
@@ -452,11 +459,13 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 	// subtracting or adding from the hue value, to put it outside the bounds of all remaining colours.
 	// Planned result would be having white (ordered from blue to red) - red to blue - black (ordered blue to red)
 
-	for i := range *listEntries {
-		(*listEntries)[i].SortVals.Val = (*listEntries)[i].ImageInfo.Colors[0].hsv.v
-		(*listEntries)[i].SortVals.Hue = (*listEntries)[i].ImageInfo.Colors[0].hsv.h
-		(*listEntries)[i].SortVals.BrightHue = algoBrightHue((*listEntries)[i].ImageInfo.Colors)
-		(*listEntries)[i].SortVals.BrightDomHue = algoBrightDominantHue((*listEntries)[i].ImageInfo.Colors)
+	for i, e := range *listEntries {
+		// fmt.Print(e.Name)
+		(*listEntries)[i].SortVals.Val = e.ImageInfo.Colors[0].hsv.v
+		(*listEntries)[i].SortVals.Hue = e.ImageInfo.Colors[0].hsv.h
+		(*listEntries)[i].SortVals.BrightHue = algoBrightHue(e.ImageInfo.Colors)
+		(*listEntries)[i].SortVals.BrightDomHue = algoBrightDominantHue(e.ImageInfo.Colors)
+		// fmt.Print("\n")
 	}
 
 	return listEntries, nil
@@ -464,12 +473,27 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 
 // Taking a sorted list, return a ListUpdateRequest, as required by Letterboxd endpoint
 func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod string, reverse bool) (*ListUpdateRequest, error) {
-
-	fmt.Print(sortMethod) // Silly call to silence unused var warning
-
 	n := len(list.Entries)
 	currentPositions := make(map[string]int)
 	var finishSlice []FilmTargetPosition
+
+	type SortFunc func(a, b Entry) int
+	var sortFunction SortFunc
+
+	switch sortMethod {
+	case "hue":
+		sortFunction = func(a, b Entry) int { return int(a.SortVals.Hue - b.SortVals.Hue) }
+	case "val":
+		sortFunction = func(a, b Entry) int { return int(a.SortVals.Val - b.SortVals.Val) }
+	case "brightHue":
+		sortFunction = func(a, b Entry) int { return int(a.SortVals.BrightHue - b.SortVals.BrightHue) }
+	case "brightDomHue":
+		sortFunction = func(a, b Entry) int { return int(a.SortVals.BrightDomHue - b.SortVals.BrightDomHue) }
+	default:
+		errorStr := "error: provided sort method not recognised"
+		return nil, errors.New(errorStr)
+	}
+	slices.SortFunc(list.Entries, sortFunction)
 
 	for i, entry := range list.Entries {
 		initPos, err := strconv.Atoi(entry.EntryID)
@@ -626,7 +650,8 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 
 	for _, c := range *domColors {
 		hex := "#" + c.AsString()
-		rgb, _ := colorful.Hex(hex)
+		rgb, _ := colorful.Hex(hex) // This feels a bit backwards, going from rgb to hex to rgb
+		// rgb := colorful.Color{R: float64(c.Color.R) / 255, G: float64(c.Color.G) / 255, B: float64(c.Color.B) / 255}
 		hue, sat, val := rgb.Hsv()
 
 		currColor = Color{rgb: rgb, hex: hex, hsv: hsv{hue, sat, val}, count: c.Cnt}
