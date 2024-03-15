@@ -177,7 +177,7 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slices.SortFunc[[]Entry](*entriesWithRanking, func(a, b Entry) int {
-		return cmp.Compare[float64](a.ImageInfo.Colors[0].hsv.h, b.ImageInfo.Colors[0].hsv.h)
+		return cmp.Compare[float64](a.ImageInfo.Colors[0].hsl.h, b.ImageInfo.Colors[0].hsl.h)
 	})
 
 	response := map[string][]Entry{
@@ -434,25 +434,25 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 	// Returns the most dominant hue with acceptable brightness
 	algoBrightHue := func(colors []Color) float64 {
 		for _, col := range colors {
-			// fmt.Printf(" %s:H%f:S%f:L%f>%f, ", col.hex, col.hsv.h, col.hsv.s, col.hsv.v, satLumSurface(col.hsv.s, col.hsv.v))
-			if satLumSurface(col.hsv.s, col.hsv.v) >= 0 {
-				// fmt.Print(" satisfies BrightHue")
-				return col.hsv.h
+			fmt.Printf(" %s:H%f:S%f:L%f>%f, ", col.hex, col.hsl.h, col.hsl.s, col.hsl.l, satLumSurface(col.hsl.s, col.hsl.l))
+			if satLumSurface(col.hsl.s, col.hsl.l) >= 0 {
+				fmt.Print(" satisfies BrightHue")
+				return col.hsl.h
 			}
 		}
-		return colors[0].hsv.h
+		return colors[0].hsl.h
 	}
 
 	algoBrightDominantHue := func(colors []Color) float64 {
 		prevColorCount := 0.1
 		for _, col := range colors {
-			if satLumSurface(col.hsv.s, col.hsv.v) > 0 && float64(col.count)/prevColorCount > 0.5 {
+			if satLumSurface(col.hsl.s, col.hsl.l) > 0 && float64(col.count)/prevColorCount > 0.5 {
 				// fmt.Printf(" colour %d satisfies BrightDominantHue", i+1)
-				return col.hsv.h
+				return col.hsl.h
 			}
 			prevColorCount = float64(col.count)
 		}
-		return colors[0].hsv.h
+		return colors[0].hsl.h
 	}
 
 	// Could have another function that puts all white / black colors at the extremes. Could do this by
@@ -460,12 +460,12 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 	// Planned result would be having white (ordered from blue to red) - red to blue - black (ordered blue to red)
 
 	for i, e := range *listEntries {
-		// fmt.Print(e.Name)
-		(*listEntries)[i].SortVals.Val = e.ImageInfo.Colors[0].hsv.v
-		(*listEntries)[i].SortVals.Hue = e.ImageInfo.Colors[0].hsv.h
+		fmt.Print(e.Name)
+		(*listEntries)[i].SortVals.Lum = e.ImageInfo.Colors[0].hsl.l
+		(*listEntries)[i].SortVals.Hue = e.ImageInfo.Colors[0].hsl.h
 		(*listEntries)[i].SortVals.BrightHue = algoBrightHue(e.ImageInfo.Colors)
 		(*listEntries)[i].SortVals.BrightDomHue = algoBrightDominantHue(e.ImageInfo.Colors)
-		// fmt.Print("\n")
+		fmt.Print("\n")
 	}
 
 	return listEntries, nil
@@ -483,8 +483,8 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 	switch sortMethod {
 	case "hue":
 		sortFunction = func(a, b Entry) int { return int(a.SortVals.Hue - b.SortVals.Hue) }
-	case "val":
-		sortFunction = func(a, b Entry) int { return int(a.SortVals.Val - b.SortVals.Val) }
+	case "lum":
+		sortFunction = func(a, b Entry) int { return int(a.SortVals.Lum - b.SortVals.Lum) }
 	case "brightHue":
 		sortFunction = func(a, b Entry) int { return int(a.SortVals.BrightHue - b.SortVals.BrightHue) }
 	case "brightDomHue":
@@ -652,9 +652,9 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 		hex := "#" + c.AsString()
 		rgb, _ := colorful.Hex(hex) // This feels a bit backwards, going from rgb to hex to rgb
 		// rgb := colorful.Color{R: float64(c.Color.R) / 255, G: float64(c.Color.G) / 255, B: float64(c.Color.B) / 255}
-		hue, sat, val := rgb.Hsv()
+		hue, sat, lum := rgb.Hsl()
 
-		currColor = Color{rgb: rgb, hex: hex, hsv: hsv{hue, sat, val}, count: c.Cnt}
+		currColor = Color{rgb: rgb, hex: hex, hsl: hsl{hue, sat, lum}, count: c.Cnt}
 		colors = append(colors, currColor)
 	}
 

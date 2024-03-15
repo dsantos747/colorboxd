@@ -36,17 +36,21 @@ export interface EntryWithImage {
 interface ImageInfo {
   Path: string;
   Hex: string;
-  Color: {
+  RGB: {
     R: number;
     G: number;
     B: number;
   };
-  Hue: number;
+  HSL: {
+    H: number;
+    S: number;
+    L: number;
+  };
 }
 
 export const sorts = [
   { id: 'hue', name: 'Hue' },
-  { id: 'val', name: 'Luminosity' },
+  { id: 'lum', name: 'Luminosity' },
   { id: 'brightHue', name: 'Bright Hue' },
   { id: 'brightDomHue', name: 'Dominant Bright Hue' },
   // { id: 'step', name: 'Alternating Step Sort' },

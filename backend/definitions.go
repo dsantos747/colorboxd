@@ -94,7 +94,7 @@ type Entry struct {
 
 type SortVals struct {
 	Hue          float64 `json:"hue"`
-	Val          float64 `json:"val"`
+	Lum          float64 `json:"lum"`
 	BrightHue    float64 `json:"brightHue"`
 	BrightDomHue float64 `json:"brightDomHue"`
 }
@@ -107,11 +107,11 @@ type ImageInfo struct {
 type Color struct {
 	rgb   colorful.Color
 	hex   string
-	hsv   hsv
+	hsl   hsl
 	count int
 }
-type hsv struct {
-	h, s, v float64
+type hsl struct {
+	h, s, l float64
 }
 
 // Holds a loaded image, alongside all information about that film entry
