@@ -418,10 +418,6 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 
 	// This creates a surface plot of saturation and luminosity, tweaked with magic values such that
 	// if the resulting value is > 0 then it's an acceptable colour "brightness"
-
-	// BUG - HSV is not HSL!! silly.
-	// This function is based on the max occuring at L = 0.5, but V is
-	// a totally different box of frogs.
 	satLumSurface := func(S, L float64) float64 {
 		a := -5.6
 		b := -1.7
@@ -434,9 +430,9 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 	// Returns the most dominant hue with acceptable brightness
 	algoBrightHue := func(colors []Color) float64 {
 		for _, col := range colors {
-			fmt.Printf(" %s:H%f:S%f:L%f>%f, ", col.hex, col.hsl.h, col.hsl.s, col.hsl.l, satLumSurface(col.hsl.s, col.hsl.l))
+			// fmt.Printf(" %s:H%f:S%f:L%f>%f, ", col.hex, col.hsl.h, col.hsl.s, col.hsl.l, satLumSurface(col.hsl.s, col.hsl.l))
 			if satLumSurface(col.hsl.s, col.hsl.l) >= 0 {
-				fmt.Print(" satisfies BrightHue")
+				// fmt.Print(" satisfies BrightHue")
 				return col.hsl.h
 			}
 		}
@@ -456,16 +452,16 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 	}
 
 	// Could have another function that puts all white / black colors at the extremes. Could do this by
-	// subtracting or adding from the hue value, to put it outside the bounds of all remaining colours.
+	// subtracting or adding from the hue value, to put it outside the bounds of all remaining colours (e.g. <0 , >360).
 	// Planned result would be having white (ordered from blue to red) - red to blue - black (ordered blue to red)
 
 	for i, e := range *listEntries {
-		fmt.Print(e.Name)
+		// fmt.Print(e.Name)
 		(*listEntries)[i].SortVals.Lum = e.ImageInfo.Colors[0].hsl.l
 		(*listEntries)[i].SortVals.Hue = e.ImageInfo.Colors[0].hsl.h
 		(*listEntries)[i].SortVals.BrightHue = algoBrightHue(e.ImageInfo.Colors)
 		(*listEntries)[i].SortVals.BrightDomHue = algoBrightDominantHue(e.ImageInfo.Colors)
-		fmt.Print("\n")
+		// fmt.Print("\n")
 	}
 
 	return listEntries, nil
