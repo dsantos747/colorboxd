@@ -50,7 +50,16 @@ export default function ListPreview() {
   }, [userToken, list, setList]);
 
   const handleShowOriginal = useCallback(() => {
-    setCurrSort({ sortMode: currSort.sortMode, visible: !currSort.visible, reverse: currSort.reverse });
+    setCurrSort({ sortMode: currSort.sortMode, visible: !currSort.visible, reverse: false });
+    if (currSort.visible) {
+      list?.entries.sort((a, b) => {
+        return Number(a.entryId) - Number(b.entryId);
+      });
+    } else {
+      list?.entries.sort((a, b) => {
+        return a.sorts[currSort.sortMode.id] - b.sorts[currSort.sortMode.id];
+      });
+    }
   }, [currSort]);
 
   const handleReverseOrder = useCallback(() => {
