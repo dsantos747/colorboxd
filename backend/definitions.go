@@ -93,10 +93,11 @@ type Entry struct {
 }
 
 type SortVals struct {
-	Hue          float64 `json:"hue"`
-	Lum          float64 `json:"lum"`
-	BrightHue    float64 `json:"brightHue"`
-	BrightDomHue float64 `json:"brightDomHue"`
+	Hue float64 `json:"hue"`
+	Lum float64 `json:"lum"`
+	// BrightHue    float64 `json:"brightHue"`
+	// BrightDomHue float64 `json:"brightDomHue"`
+	InverseStep int `json:"inverseStep"`
 }
 
 // An images path and colour information
@@ -105,13 +106,10 @@ type ImageInfo struct {
 	Colors []Color
 }
 type Color struct {
-	rgb   colorful.Color
-	hex   string
-	hsl   hsl
-	count int
-}
-type hsl struct {
-	h, s, l float64
+	rgb        colorful.Color
+	hex        string
+	h, s, l, v float64
+	count      int
 }
 
 // Holds a loaded image, alongside all information about that film entry

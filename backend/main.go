@@ -10,7 +10,6 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -177,7 +176,7 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slices.SortFunc[[]Entry](*entriesWithRanking, func(a, b Entry) int {
-		return cmp.Compare[float64](a.ImageInfo.Colors[0].hsl.h, b.ImageInfo.Colors[0].hsl.h)
+		return cmp.Compare[float64](a.ImageInfo.Colors[0].h, b.ImageInfo.Colors[0].h)
 	})
 
 	response := map[string][]Entry{
@@ -248,7 +247,7 @@ func GetAccessToken(authCode string) (*AccessTokenResponse, error) {
 
 	response, err := MakeHTTPRequest(method, endpoint, strings.NewReader(formData.Encode()), headers)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error making HTTP request: %v", err)
 	}
 	defer response.Body.Close()
 
@@ -269,7 +268,7 @@ func GetMemberId(token string) (*Member, error) {
 
 	response, err := MakeHTTPRequest(method, endpoint, nil, headers)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error making HTTP request: %v", err)
 	}
 	defer response.Body.Close()
 
@@ -296,7 +295,7 @@ func GetUserLists(token, id string) (*[]ListSummary, error) {
 
 	response, err := MakeHTTPRequest(method, url, nil, headers)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error making HTTP request: %v", err)
 	}
 	defer response.Body.Close()
 
@@ -307,7 +306,7 @@ func GetUserLists(token, id string) (*[]ListSummary, error) {
 		return nil, err
 	}
 
-	var lists []ListSummary = responseData.Items
+	var lists = responseData.Items
 
 	return &lists, nil
 }
@@ -328,15 +327,14 @@ func GetListEntries(token, id string) (*[]Entry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error making HTTP request: %v", err)
 		}
+		defer response.Body.Close()
 
 		var responseData ListEntriesResponse
 		if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
-			response.Body.Close()
 			fmt.Println(err)
 			return nil, fmt.Errorf("error decoding letterboxd list entries JSON response: %v", err)
 		}
 
-		response.Body.Close()
 		listEntriesData = append(listEntriesData, responseData.Items...)
 		nextCursor = responseData.Next
 	}
@@ -380,7 +378,7 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 
 	for _, entry := range *listEntries {
 		wg.Add(1)
-		go loadImageConcurrent(entry, &wg, imageChan)
+		go concurrentLoadImage(entry, &wg, imageChan)
 	}
 
 	go func() {
@@ -399,7 +397,7 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 
 	for i := 0; i < n; i++ {
 		wg.Add(1)
-		go getImageInfoConcurrent(images[i], &wg, colorChan)
+		go concurrentGetImageInfo(images[i], &wg, colorChan)
 	}
 
 	go func() {
@@ -418,37 +416,54 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 
 	// This creates a surface plot of saturation and luminosity, tweaked with magic values such that
 	// if the resulting value is > 0 then it's an acceptable colour "brightness"
-	satLumSurface := func(S, L float64) float64 {
-		a := -5.6
-		b := -1.7
-		c := 5.18
-		d := 3.64
-		e := -2.13
-		return a*math.Pow(S, 2) + b*math.Pow(L, 2) + c*S + d*L + e
-	}
+	// satLumSurface := func(S, L float64) float64 {
+	// 	a := -5.6
+	// 	b := -1.7
+	// 	c := 5.18
+	// 	d := 3.64
+	// 	e := -2.13
+	// 	return a*math.Pow(S, 2) + b*math.Pow(L, 2) + c*S + d*L + e
+	// }
 
-	// Returns the most dominant hue with acceptable brightness
-	algoBrightHue := func(colors []Color) float64 {
-		for _, col := range colors {
-			// fmt.Printf(" %s:H%f:S%f:L%f>%f, ", col.hex, col.hsl.h, col.hsl.s, col.hsl.l, satLumSurface(col.hsl.s, col.hsl.l))
-			if satLumSurface(col.hsl.s, col.hsl.l) >= 0 {
-				// fmt.Print(" satisfies BrightHue")
-				return col.hsl.h
-			}
-		}
-		return colors[0].hsl.h
-	}
+	// // Returns the most dominant hue with acceptable brightness
+	// algoBrightHue := func(colors []Color) float64 {
+	// 	for _, col := range colors {
+	// 		// fmt.Printf(" %s:H%f:S%f:L%f>%f, ", col.hex, col.hsl.h, col.hsl.s, col.hsl.l, satLumSurface(col.hsl.s, col.hsl.l))
+	// 		if satLumSurface(col.s, col.l) >= 0 {
+	// 			// fmt.Print(" satisfies BrightHue")
+	// 			return col.h
+	// 		}
+	// 	}
+	// 	return colors[0].h
+	// }
 
-	algoBrightDominantHue := func(colors []Color) float64 {
-		prevColorCount := 0.1
-		for _, col := range colors {
-			if satLumSurface(col.hsl.s, col.hsl.l) > 0 && float64(col.count)/prevColorCount > 0.5 {
-				// fmt.Printf(" colour %d satisfies BrightDominantHue", i+1)
-				return col.hsl.h
-			}
-			prevColorCount = float64(col.count)
+	// algoBrightDominantHue := func(colors []Color) float64 {
+	// 	prevColorCount := 0.1
+	// 	for _, col := range colors {
+	// 		if satLumSurface(col.s, col.l) > 0 && float64(col.count)/prevColorCount > 0.5 {
+	// 			// fmt.Printf(" colour %d satisfies BrightDominantHue", i+1)
+	// 			return col.h
+	// 		}
+	// 		prevColorCount = float64(col.count)
+	// 	}
+	// 	return colors[0].h
+	// }
+
+	inverseStep := func(color Color, reps int) int {
+		// fmt.Println(color.hex)
+		// fmt.Printf("h: %f; l: %f; v: %f.\n", color.h, color.l, color.v)
+		h2 := int((color.h / 360) * float64(reps))
+		l2 := int(color.l * float64(reps))
+		v2 := int(color.v * float64(reps))
+
+		if h2%2 == 1 {
+			v2 = reps - v2
+			l2 = reps - l2
 		}
-		return colors[0].hsl.h
+		// fmt.Printf("h2: %v; l2: %v; v2: %v.\n", h2, l2, v2)
+		// fmt.Printf("h2: %v; l2: %v; v2: %v.\n", 1000*h2, 10*l2, v2)
+
+		return 1000*h2 + 10*l2 + v2
 	}
 
 	// Could have another function that puts all white / black colors at the extremes. Could do this by
@@ -456,11 +471,12 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 	// Planned result would be having white (ordered from blue to red) - red to blue - black (ordered blue to red)
 
 	for i, e := range *listEntries {
-		// fmt.Print(e.Name)
-		(*listEntries)[i].SortVals.Lum = e.ImageInfo.Colors[0].hsl.l
-		(*listEntries)[i].SortVals.Hue = e.ImageInfo.Colors[0].hsl.h
-		(*listEntries)[i].SortVals.BrightHue = algoBrightHue(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.BrightDomHue = algoBrightDominantHue(e.ImageInfo.Colors)
+		// fmt.Print(e.Name, "\n")
+		(*listEntries)[i].SortVals.Lum = e.ImageInfo.Colors[0].l
+		(*listEntries)[i].SortVals.Hue = e.ImageInfo.Colors[0].h
+		// (*listEntries)[i].SortVals.BrightHue = algoBrightHue(e.ImageInfo.Colors)
+		// (*listEntries)[i].SortVals.BrightDomHue = algoBrightDominantHue(e.ImageInfo.Colors)
+		(*listEntries)[i].SortVals.InverseStep = inverseStep(e.ImageInfo.Colors[0], 8)
 		// fmt.Print("\n")
 	}
 
@@ -519,7 +535,7 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 
 // Create a set of instructions that, applied in turn, result in the correctly-sorted list.
 func createListUpdateEntries(currentPositions map[string]int, finishPositions []FilmTargetPosition) []listUpdateEntry {
-	updateEntries := []listUpdateEntry{}
+	var updateEntries []listUpdateEntry
 	for _, film := range finishPositions {
 		currPos := currentPositions[film.FilmId]
 		if film.Position == currPos {
@@ -554,7 +570,7 @@ func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[
 
 	response, err := MakeHTTPRequest(method, endpoint, bytes.NewReader(body), headers)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error making HTTP request: %v", err)
 	}
 	defer response.Body.Close()
 
@@ -601,7 +617,7 @@ func LoadImage(path string) (image.Image, error) {
 	return img, nil
 }
 
-func loadImageConcurrent(entry Entry, wg *sync.WaitGroup, imageChan chan<- Image) {
+func concurrentLoadImage(entry Entry, wg *sync.WaitGroup, imageChan chan<- Image) {
 	defer wg.Done()
 
 	img, err := LoadImage(entry.ImageInfo.Path)
@@ -615,7 +631,7 @@ func loadImageConcurrent(entry Entry, wg *sync.WaitGroup, imageChan chan<- Image
 	imageChan <- image
 }
 
-func getDominantColors(k int, method int, img image.Image) (*[]prominentcolor.ColorItem, error) {
+func getDominantColors(k, method int, img image.Image) (*[]prominentcolor.ColorItem, error) {
 	resizeSize := uint(prominentcolor.DefaultSize)
 	var bgmasks []prominentcolor.ColorBackgroundMask // No mask
 	// bgmasks := prominentcolor.GetDefaultMasks() // Default masks (black,white or green backgrounds)
@@ -649,8 +665,9 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 		rgb, _ := colorful.Hex(hex) // This feels a bit backwards, going from rgb to hex to rgb
 		// rgb := colorful.Color{R: float64(c.Color.R) / 255, G: float64(c.Color.G) / 255, B: float64(c.Color.B) / 255}
 		hue, sat, lum := rgb.Hsl()
+		_, _, val := rgb.Hsv() // Look into docs on using Clamped rgb values before converting to hsl/hsv
 
-		currColor = Color{rgb: rgb, hex: hex, hsl: hsl{hue, sat, lum}, count: c.Cnt}
+		currColor = Color{rgb: rgb, hex: hex, h: hue, s: sat, l: lum, v: val, count: c.Cnt}
 		colors = append(colors, currColor)
 	}
 
@@ -659,7 +676,7 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	return &entry, nil
 }
 
-func getImageInfoConcurrent(image Image, wg *sync.WaitGroup, colorChan chan<- Entry) {
+func concurrentGetImageInfo(image Image, wg *sync.WaitGroup, colorChan chan<- Entry) {
 	defer wg.Done()
 
 	imgColorInfo, err := getImageInfo(image.info, image.img)
