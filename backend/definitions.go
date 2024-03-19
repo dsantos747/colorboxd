@@ -90,14 +90,17 @@ type Entry struct {
 	AdultPosterURL     string `json:"adultPosterUrl"`
 	ImageInfo          ImageInfo
 	SortVals           SortVals `json:"sorts"`
+	Hex1               string   `json:"hex1"`
+	Hex2               string   `json:"hex2"`
 }
 
 type SortVals struct {
-	Hue float64 `json:"hue"`
-	Lum float64 `json:"lum"`
-	// BrightHue    float64 `json:"brightHue"`
-	// BrightDomHue float64 `json:"brightDomHue"`
-	InverseStep int `json:"inverseStep"`
+	Hue          float64 `json:"hue"`
+	Lum          float64 `json:"lum"`
+	BRBW1        int     `json:"BRBW1"`
+	BRBW2        int     `json:"BRBW2"`
+	BrightDomHue float64 `json:"brightDomHue"`
+	InverseStep  int     `json:"inverseStep"`
 }
 
 // An images path and colour information

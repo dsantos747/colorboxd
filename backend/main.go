@@ -414,70 +414,15 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 
 func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 
-	// This creates a surface plot of saturation and luminosity, tweaked with magic values such that
-	// if the resulting value is > 0 then it's an acceptable colour "brightness"
-	// satLumSurface := func(S, L float64) float64 {
-	// 	a := -5.6
-	// 	b := -1.7
-	// 	c := 5.18
-	// 	d := 3.64
-	// 	e := -2.13
-	// 	return a*math.Pow(S, 2) + b*math.Pow(L, 2) + c*S + d*L + e
-	// }
-
-	// // Returns the most dominant hue with acceptable brightness
-	// algoBrightHue := func(colors []Color) float64 {
-	// 	for _, col := range colors {
-	// 		// fmt.Printf(" %s:H%f:S%f:L%f>%f, ", col.hex, col.hsl.h, col.hsl.s, col.hsl.l, satLumSurface(col.hsl.s, col.hsl.l))
-	// 		if satLumSurface(col.s, col.l) >= 0 {
-	// 			// fmt.Print(" satisfies BrightHue")
-	// 			return col.h
-	// 		}
-	// 	}
-	// 	return colors[0].h
-	// }
-
-	// algoBrightDominantHue := func(colors []Color) float64 {
-	// 	prevColorCount := 0.1
-	// 	for _, col := range colors {
-	// 		if satLumSurface(col.s, col.l) > 0 && float64(col.count)/prevColorCount > 0.5 {
-	// 			// fmt.Printf(" colour %d satisfies BrightDominantHue", i+1)
-	// 			return col.h
-	// 		}
-	// 		prevColorCount = float64(col.count)
-	// 	}
-	// 	return colors[0].h
-	// }
-
-	inverseStep := func(color Color, reps int) int {
-		// fmt.Println(color.hex)
-		// fmt.Printf("h: %f; l: %f; v: %f.\n", color.h, color.l, color.v)
-		h2 := int((color.h / 360) * float64(reps))
-		l2 := int(color.l * float64(reps))
-		v2 := int(color.v * float64(reps))
-
-		if h2%2 == 1 {
-			v2 = reps - v2
-			l2 = reps - l2
-		}
-		// fmt.Printf("h2: %v; l2: %v; v2: %v.\n", h2, l2, v2)
-		// fmt.Printf("h2: %v; l2: %v; v2: %v.\n", 1000*h2, 10*l2, v2)
-
-		return 1000*h2 + 10*l2 + v2
-	}
-
-	// Could have another function that puts all white / black colors at the extremes. Could do this by
-	// subtracting or adding from the hue value, to put it outside the bounds of all remaining colours (e.g. <0 , >360).
-	// Planned result would be having white (ordered from blue to red) - red to blue - black (ordered blue to red)
-
 	for i, e := range *listEntries {
-		// fmt.Print(e.Name, "\n")
+		fmt.Print(e.Name, ": ")
 		(*listEntries)[i].SortVals.Lum = e.ImageInfo.Colors[0].l
 		(*listEntries)[i].SortVals.Hue = e.ImageInfo.Colors[0].h
-		// (*listEntries)[i].SortVals.BrightHue = algoBrightHue(e.ImageInfo.Colors)
-		// (*listEntries)[i].SortVals.BrightDomHue = algoBrightDominantHue(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.InverseStep = inverseStep(e.ImageInfo.Colors[0], 8)
-		// fmt.Print("\n")
+		(*listEntries)[i].SortVals.BrightDomHue = AlgoBrightDominantHue(e.ImageInfo.Colors)
+		(*listEntries)[i].SortVals.InverseStep = AlgoInverseStep(e.ImageInfo.Colors[0], 8)
+		// (*listEntries)[i].SortVals.BRBW1 = AlgoBRBW1(e.ImageInfo.Colors)
+		(*listEntries)[i].SortVals.BRBW2 = AlgoBRBW2(e.ImageInfo.Colors)
+		fmt.Print("\n")
 	}
 
 	return listEntries, nil
@@ -497,10 +442,12 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 		sortFunction = func(a, b Entry) int { return int(a.SortVals.Hue - b.SortVals.Hue) }
 	case "lum":
 		sortFunction = func(a, b Entry) int { return int(a.SortVals.Lum - b.SortVals.Lum) }
-	case "brightHue":
-		sortFunction = func(a, b Entry) int { return int(a.SortVals.BrightHue - b.SortVals.BrightHue) }
-	case "brightDomHue":
-		sortFunction = func(a, b Entry) int { return int(a.SortVals.BrightDomHue - b.SortVals.BrightDomHue) }
+	case "inverseStep":
+		sortFunction = func(a, b Entry) int { return a.SortVals.InverseStep - b.SortVals.InverseStep }
+	// case "brightHue":
+	// 	sortFunction = func(a, b Entry) int { return int(a.SortVals.BrightHue - b.SortVals.BrightHue) }
+	// case "brightDomHue":
+	// 	sortFunction = func(a, b Entry) int { return int(a.SortVals.BrightDomHue - b.SortVals.BrightDomHue) }
 	default:
 		errorStr := "error: provided sort method not recognised"
 		return nil, errors.New(errorStr)
@@ -672,6 +619,17 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	}
 
 	entry.ImageInfo.Colors = colors
+
+	//
+	//
+	//	TODO: Remove this unneccessary assignment from json payload
+	//
+	//
+	entry.Hex1 = colors[0].hex
+	entry.Hex2 = ""
+	if len(colors) > 1 {
+		entry.Hex2 = colors[1].hex
+	}
 
 	return &entry, nil
 }
