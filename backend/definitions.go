@@ -95,12 +95,15 @@ type Entry struct {
 }
 
 type SortVals struct {
-	Hue          float64 `json:"hue"`
-	Lum          float64 `json:"lum"`
-	BRBW1        int     `json:"BRBW1"`
-	BRBW2        int     `json:"BRBW2"`
-	BrightDomHue float64 `json:"brightDomHue"`
-	InverseStep  int     `json:"inverseStep"`
+	Hue             float64 `json:"hue"`
+	Lum             float64 `json:"lum"`
+	BRBW1           int     `json:"BRBW1"`
+	BRBW2           int     `json:"BRBW2"`
+	BrightDomHue    float64 `json:"brightDomHue"`
+	InverseStep_8   int     `json:"inverseStep_8"`
+	InverseStep_12  int     `json:"inverseStep_12"`
+	InverseStep2_8  int     `json:"inverseStep2_8"`
+	InverseStep2_12 int     `json:"inverseStep2_12"`
 }
 
 // An images path and colour information

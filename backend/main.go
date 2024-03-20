@@ -415,15 +415,23 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 
 	for i, e := range *listEntries {
-		fmt.Print(e.Name, ": ")
 		(*listEntries)[i].SortVals.Lum = e.ImageInfo.Colors[0].l
-		(*listEntries)[i].SortVals.Hue = e.ImageInfo.Colors[0].h
+		(*listEntries)[i].SortVals.Hue = AlgoHue(e.ImageInfo.Colors)
 		(*listEntries)[i].SortVals.BrightDomHue = AlgoBrightDominantHue(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.InverseStep = AlgoInverseStep(e.ImageInfo.Colors[0], 8)
+		(*listEntries)[i].SortVals.InverseStep_8 = AlgoInverseStep(e.ImageInfo.Colors, 8)
+		(*listEntries)[i].SortVals.InverseStep_12 = AlgoInverseStep(e.ImageInfo.Colors, 12)
+		(*listEntries)[i].SortVals.InverseStep2_8 = AlgoInverseStepV2(e.ImageInfo.Colors, 8)
+		(*listEntries)[i].SortVals.InverseStep2_12 = AlgoInverseStepV2(e.ImageInfo.Colors, 12)
 		// (*listEntries)[i].SortVals.BRBW1 = AlgoBRBW1(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.BRBW2 = AlgoBRBW2(e.ImageInfo.Colors)
+		// (*listEntries)[i].SortVals.BRBW2 = AlgoBRBW2(e.ImageInfo.Colors)
+		fmt.Print(e.Name, ": ")
+
 		fmt.Print("\n")
 	}
+
+	// a := (*listEntries)[2].ImageInfo.Colors[0].h
+	// fmt.Println("hue ", a)
+	// fmt.Println(int((a / 360) * float64(8)))
 
 	return listEntries, nil
 }
@@ -442,12 +450,14 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 		sortFunction = func(a, b Entry) int { return int(a.SortVals.Hue - b.SortVals.Hue) }
 	case "lum":
 		sortFunction = func(a, b Entry) int { return int(a.SortVals.Lum - b.SortVals.Lum) }
-	case "inverseStep":
-		sortFunction = func(a, b Entry) int { return a.SortVals.InverseStep - b.SortVals.InverseStep }
-	// case "brightHue":
-	// 	sortFunction = func(a, b Entry) int { return int(a.SortVals.BrightHue - b.SortVals.BrightHue) }
-	// case "brightDomHue":
-	// 	sortFunction = func(a, b Entry) int { return int(a.SortVals.BrightDomHue - b.SortVals.BrightDomHue) }
+	case "inverseStep_8":
+		sortFunction = func(a, b Entry) int { return a.SortVals.InverseStep_8 - b.SortVals.InverseStep_8 }
+	case "inverseStep_12":
+		sortFunction = func(a, b Entry) int { return a.SortVals.InverseStep_12 - b.SortVals.InverseStep_12 }
+	case "inverseStep2_8":
+		sortFunction = func(a, b Entry) int { return a.SortVals.InverseStep2_8 - b.SortVals.InverseStep2_8 }
+	case "inverseStep2_12":
+		sortFunction = func(a, b Entry) int { return a.SortVals.InverseStep2_12 - b.SortVals.InverseStep2_12 }
 	default:
 		errorStr := "error: provided sort method not recognised"
 		return nil, errors.New(errorStr)
@@ -588,7 +598,7 @@ func getDominantColors(k, method int, img image.Image) (*[]prominentcolor.ColorI
 		return nil, err
 	}
 
-	// Limit to top 3 colors
+	// Limit to top 3 colors - Increasing this limit may cause "a lotta damage"
 	if len(res) > 3 {
 		res = res[0:2]
 	}
