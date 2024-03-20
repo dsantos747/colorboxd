@@ -176,7 +176,7 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slices.SortFunc[[]Entry](*entriesWithRanking, func(a, b Entry) int {
-		return cmp.Compare[float64](a.ImageInfo.Colors[0].h, b.ImageInfo.Colors[0].h)
+		return cmp.Compare[int](AlgoHue(a.ImageInfo.Colors), AlgoHue(b.ImageInfo.Colors))
 	})
 
 	response := map[string][]Entry{
@@ -413,25 +413,17 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 }
 
 func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
-
 	for i, e := range *listEntries {
-		(*listEntries)[i].SortVals.Lum = e.ImageInfo.Colors[0].l
 		(*listEntries)[i].SortVals.Hue = AlgoHue(e.ImageInfo.Colors)
+		(*listEntries)[i].SortVals.Lum = AlgoLuminosity(e.ImageInfo.Colors)
 		(*listEntries)[i].SortVals.BrightDomHue = AlgoBrightDominantHue(e.ImageInfo.Colors)
 		(*listEntries)[i].SortVals.InverseStep_8 = AlgoInverseStep(e.ImageInfo.Colors, 8)
 		(*listEntries)[i].SortVals.InverseStep_12 = AlgoInverseStep(e.ImageInfo.Colors, 12)
 		(*listEntries)[i].SortVals.InverseStep2_8 = AlgoInverseStepV2(e.ImageInfo.Colors, 8)
 		(*listEntries)[i].SortVals.InverseStep2_12 = AlgoInverseStepV2(e.ImageInfo.Colors, 12)
-		// (*listEntries)[i].SortVals.BRBW1 = AlgoBRBW1(e.ImageInfo.Colors)
-		// (*listEntries)[i].SortVals.BRBW2 = AlgoBRBW2(e.ImageInfo.Colors)
-		fmt.Print(e.Name, ": ")
-
-		fmt.Print("\n")
+		(*listEntries)[i].SortVals.BRBW1 = AlgoBRBW1(e.ImageInfo.Colors)
+		(*listEntries)[i].SortVals.BRBW2 = AlgoBRBW2(e.ImageInfo.Colors)
 	}
-
-	// a := (*listEntries)[2].ImageInfo.Colors[0].h
-	// fmt.Println("hue ", a)
-	// fmt.Println(int((a / 360) * float64(8)))
 
 	return listEntries, nil
 }
@@ -447,9 +439,11 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 
 	switch sortMethod {
 	case "hue":
-		sortFunction = func(a, b Entry) int { return int(a.SortVals.Hue - b.SortVals.Hue) }
+		sortFunction = func(a, b Entry) int { return a.SortVals.Hue - b.SortVals.Hue }
 	case "lum":
-		sortFunction = func(a, b Entry) int { return int(a.SortVals.Lum - b.SortVals.Lum) }
+		sortFunction = func(a, b Entry) int { return a.SortVals.Lum - b.SortVals.Lum }
+	case "brightDomHue":
+		sortFunction = func(a, b Entry) int { return a.SortVals.BrightDomHue - b.SortVals.BrightDomHue }
 	case "inverseStep_8":
 		sortFunction = func(a, b Entry) int { return a.SortVals.InverseStep_8 - b.SortVals.InverseStep_8 }
 	case "inverseStep_12":
@@ -458,6 +452,10 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 		sortFunction = func(a, b Entry) int { return a.SortVals.InverseStep2_8 - b.SortVals.InverseStep2_8 }
 	case "inverseStep2_12":
 		sortFunction = func(a, b Entry) int { return a.SortVals.InverseStep2_12 - b.SortVals.InverseStep2_12 }
+	case "BRBW1":
+		sortFunction = func(a, b Entry) int { return a.SortVals.BRBW1 - b.SortVals.BRBW1 }
+	case "BRBW2":
+		sortFunction = func(a, b Entry) int { return a.SortVals.BRBW2 - b.SortVals.BRBW2 }
 	default:
 		errorStr := "error: provided sort method not recognised"
 		return nil, errors.New(errorStr)
