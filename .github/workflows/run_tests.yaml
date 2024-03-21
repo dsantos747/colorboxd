@@ -11,6 +11,8 @@ jobs:
 
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -25,9 +27,15 @@ jobs:
       - name: Run Frontend Tests
         run: |
           cd frontend
-          npm run test
+          npm test -- --env=jsdom --coverage --coverageReporters=cobertura --coverageDirectory=src/__tests__/coverage
 
-      - run: echo "This job's status is ${{ job.status }}."
+      - name: Report coverage results to DeepSource
+        run: |
+          curl https://deepsource.io/cli | sh
+
+          ./bin/deepsource report --analyzer test-coverage --key javascript --value-file ./frontend/src/__tests__/coverage/cobertura-coverage.xml
+        env:
+          DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
 
   backendTest:
     runs-on: ubuntu-latest
@@ -36,6 +44,8 @@ jobs:
 
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -50,6 +60,13 @@ jobs:
       - name: Run Backend Tests
         run: |
           cd backend
-          go test
+          go test -coverprofile=cover.out
 
-      - run: echo "This job's status is ${{ job.status }}."
+      - name: Report coverage results to DeepSource
+        run: |
+          curl https://deepsource.io/cli | sh
+
+
+          ./bin/deepsource report --analyzer test-coverage --key go --value-file ./backend/coverage.xml
+        env:
+          DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}

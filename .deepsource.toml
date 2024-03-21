@@ -12,3 +12,7 @@ name = "go"
 
   [analyzers.meta]
   import_root = "github.com/dsantos747/letterboxd_hue_sort"
+
+[[analyzers]]
+name = "test-coverage"
+enabled = true
