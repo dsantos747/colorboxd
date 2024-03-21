@@ -27,7 +27,7 @@ jobs:
       - name: Run Frontend Tests
         run: |
           cd frontend
-          npm test -- --env=jsdom --coverage --coverageReporters=cobertura --report-dir=..
+          npm test -- --env=jsdom --coverage --coverageReporters=cobertura --root=..
 
       - name: Report coverage results to DeepSource
         run: |
