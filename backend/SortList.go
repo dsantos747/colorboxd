@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"io"
 	"net/http"
 	"os"
 	"slices"
 	"sync"
+
+	// Accepted image formats in loadImage
+	_ "image/jpeg"
+	_ "image/png"
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/joho/godotenv"
@@ -196,7 +199,6 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 }
 
 func loadImage(path string) (image.Image, error) {
-	var file io.ReadCloser
 	var err error = nil
 
 	response, err := http.Get(path)
@@ -208,9 +210,8 @@ func loadImage(path string) (image.Image, error) {
 	if response.StatusCode != http.StatusOK {
 		return nil, err
 	}
-	file = response.Body
 
-	img, _, err := image.Decode(file)
+	img, _, err := image.Decode(response.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -272,18 +273,6 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	}
 
 	entry.ImageInfo.Colors = colors
-
-	//
-	//
-	//	TODO: Remove this unneccessary assignment from json payload
-	//
-	//
-	entry.Hex1 = colors[0].hex
-	entry.Hex2 = ""
-	if len(colors) > 1 {
-		entry.Hex2 = colors[1].hex
-	}
-
 	return &entry, nil
 }
 

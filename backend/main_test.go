@@ -21,7 +21,7 @@ func TestGetRedImageInfo(t *testing.T) {
 
 	redImage, err := loadImage(imagePath)
 	if err != nil {
-		t.Errorf("Load valid image 00ff00.png shouldn't error, had error: %v\n", err)
+		t.Errorf("Load valid image ff0000.png shouldn't error, had error: %v\n", err)
 	}
 
 	redImageInfo, err := getImageInfo(entry, redImage)

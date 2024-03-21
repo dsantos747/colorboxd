@@ -38,6 +38,7 @@
     }
   },
   "devDependencies": {
+    "@babel/plugin-transform-private-property-in-object": "^7.24.1",
     "@types/js-cookie": "^3.0.6",
     "autoprefixer": "^10.4.17",
     "postcss": "^8.4.35",

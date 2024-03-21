@@ -38,11 +38,22 @@ const testList: List = {
       adultPosterUrl: '',
       entryId: '0',
       filmId: 'abc',
-      ImageInfo: { Color: { R: 255, G: 0, B: 0 }, Hex: '#FF0000', Hue: 0, Path: '123' },
+      ImageInfo: { RGB: { R: 255, G: 0, B: 0 }, Hex: '#FF0000', HSL: { H: 0, S: 1, L: 0.5 }, Path: '123' },
       name: 'Test Film',
       posterCustomisable: false,
       posterUrl: '123',
       releaseYear: 1997,
+      sorts: {
+        'hue': 0,
+        'lum': 0,
+        'brightDomHue': 0,
+        'inverseStep_8': 0,
+        'inverseStep_12': 0,
+        'inverseStep2_8': 0,
+        'inverseStep2_12': 0,
+        'BRBW1': 0,
+        'BRBW2': 0,
+      },
     },
   ],
 };
@@ -73,6 +84,6 @@ test('renders john doe user page, with 3 lists', () => {
 
 test('sets active list, expect ui change', () => {
   render(mockUserPage(testToken, testList));
-  const hintText = screen.getByText(/Hint: Click an item to make it the start of the list./i);
+  const hintText = screen.getByText(/Click a poster to make it the start of the list./i);
   expect(hintText).toBeInTheDocument();
 });

@@ -31,8 +31,6 @@ export interface EntryWithImage {
   adultPosterUrl: string;
   ImageInfo: ImageInfo;
   sorts: SortRanks;
-  hex1: string;
-  hex2: string;
 }
 
 interface ImageInfo {
