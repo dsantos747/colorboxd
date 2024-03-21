@@ -1,7 +1,7 @@
 import Cookies from 'js-cookie';
 import { ReactNode, useCallback, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
+import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
 
 const happyButtonStyle =
   'text-sm sm:text-base py-2 px-3 sm:px-5 h-min rounded-lg bg-gray-700 bg-opacity-50 text-teal-400 enabled:hover:bg-teal-800 enabled:hover:text-white enabled:active:bg-teal-700 enabled:active:text-white disabled:bg-opacity-20 disabled:text-gray-400 transition-colors duration-200';
@@ -19,13 +19,15 @@ const LoginButton = () => {
 
 const SignOutButton = () => {
   const { setUserToken } = useContext(UserTokenContext) as UserTokenContextType;
+  const { setList } = useContext(ListContext) as ListContextType;
   const navigate = useNavigate();
 
   const handleSignOut = useCallback(() => {
     navigate('/');
     Cookies.remove('userToken');
     setUserToken(null);
-  }, [navigate, setUserToken]);
+    setList(null);
+  }, [navigate, setUserToken, setList]);
 
   return (
     <button onClick={handleSignOut} className={`${sadButtonStyle}`}>

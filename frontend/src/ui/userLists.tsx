@@ -7,14 +7,17 @@ import {
   UserTokenContext,
   UserTokenContextType,
 } from '../lib/contexts';
-import { GetLists, SortList } from '../actions/actions';
+import { ClearListCache, GetLists, SortList } from '../actions/actions';
 import { ArrowPathIcon } from '@heroicons/react/16/solid';
+
+const minListLength = 20;
 
 const listTooShortMessages = [
   "Don't waste my time...",
   'You call that a list?',
-  'Give me at least 10 films.',
   'You can sort that yourself!',
+  `Give me at least ${minListLength} films.`,
+  `Give me at least ${minListLength} films.`,
 ] as const;
 
 type listTypes = (typeof listTooShortMessages)[number];
@@ -56,7 +59,7 @@ function UserLists() {
       e.preventDefault();
 
       if (chosenListIndex !== undefined && userToken && listSummary) {
-        if (listSummary[chosenListIndex].filmCount < 10) {
+        if (listSummary[chosenListIndex].filmCount < minListLength) {
           setListLengthMessage(listTooShortMessages[Math.floor(Math.random() * listTooShortMessages.length)]);
           return;
         }
@@ -78,6 +81,9 @@ function UserLists() {
   );
 
   const handleRefreshLists = useCallback(() => {
+    ClearListCache();
+    setList(null);
+
     GetLists(userToken.Token, userToken.UserId, true)
       .then((ls) => {
         setListSummary(ls);
@@ -86,7 +92,7 @@ function UserLists() {
       .catch((error) => {
         console.error('Error getting user lists:', error);
       });
-  }, [setListSummary, userToken]);
+  }, [setListSummary, userToken, setList]);
 
   const handleMenuState = useCallback(() => {
     setMenuOpen(!menuOpen);

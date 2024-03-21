@@ -1,5 +1,5 @@
 import Cookies from 'js-cookie';
-import { EntryWithImage, List, ListSummary, UserToken } from '../lib/definitions';
+import { EntryWithImage, List, ListSummary, SortModeType, UserToken } from '../lib/definitions';
 
 const BACKEND_URL1 = process.env.REACT_APP_BACKEND_URL1;
 const BACKEND_URL2 = process.env.REACT_APP_BACKEND_URL2;
@@ -48,8 +48,14 @@ async function GetLists(accessToken: string, userId: string, refresh = false): P
   return data;
 }
 
+let listCache: Record<string, List> = {};
+
+function ClearListCache() {
+  listCache = {};
+}
+
 async function SortList(accessToken: string, listSummary: ListSummary, refresh = false): Promise<List> {
-  const cacheMode: RequestCache = refresh ? 'reload' : 'default';
+  const cacheMode: RequestCache = refresh || !listCache[listSummary.id] ? 'reload' : 'default';
 
   const response = await fetch(`${BACKEND_URL1}SortList?accessToken=${encodeURIComponent(accessToken)}&listId=${listSummary.id}`, {
     method: 'GET',
@@ -69,6 +75,10 @@ async function SortList(accessToken: string, listSummary: ListSummary, refresh =
     entries: entryListWithImages,
   };
 
+  // if (cacheMode === 'default') {
+  listCache[listSummary.id] = list;
+  // }
+
   return list;
 }
 
@@ -76,8 +86,8 @@ async function WriteSortedList(
   accessToken: string,
   list: List,
   offset: number,
-  sortMethod = 'hue',
-  reverse = false,
+  sortMethod: SortModeType['sortMode']['id'],
+  reverse: boolean,
   refresh = false
 ): Promise<string> {
   const cacheMode: RequestCache = refresh ? 'reload' : 'default';
@@ -103,4 +113,4 @@ async function WriteSortedList(
   return message;
 }
 
-export { GetAccessTokenAndUser, GetLists, SortList, WriteSortedList };
+export { GetAccessTokenAndUser, GetLists, SortList, WriteSortedList, ClearListCache };

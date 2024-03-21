@@ -60,7 +60,7 @@ export default function ListPreview() {
         return a.sorts[currSort.sortMode.id] - b.sorts[currSort.sortMode.id];
       });
     }
-  }, [currSort]);
+  }, [currSort, list]);
 
   const handleReverseOrder = useCallback(() => {
     setCurrSort({ sortMode: currSort.sortMode, visible: currSort.visible, reverse: !currSort.reverse });
@@ -109,7 +109,7 @@ export default function ListPreview() {
   return (
     <div className='mx-auto max-w-6xl'>
       <div className='flex flex-wrap justify-between'>
-        <p className='my-auto'>Hint: Click an item to make it the start of the list.</p>
+        <p className='my-auto'>Hint: Click a poster to make it the start of the list.</p>
         <form className='flex justify-end flex-wrap align-middle items-center select-none gap-2 ml-auto'>
           <div className='mx-auto'>
             <input type='checkbox' id='showOriginal' className='hidden peer' checked={!currSort.visible} onChange={handleShowOriginal} />
