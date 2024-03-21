@@ -27,13 +27,13 @@ jobs:
       - name: Run Frontend Tests
         run: |
           cd frontend
-          npm test -- --env=jsdom --coverage --coverageReporters=cobertura --coverageDirectory=src/__tests__/coverage
+          npm test -- --env=jsdom --coverage --coverageReporters=cobertura
 
       - name: Report coverage results to DeepSource
         run: |
           curl https://deepsource.io/cli | sh
 
-          ./bin/deepsource report --analyzer test-coverage --key javascript --value-file ./frontend/src/__tests__/coverage/cobertura-coverage.xml
+          ./bin/deepsource report --analyzer test-coverage --key javascript --value-file ./frontend/coverage/cobertura-coverage.xml
         env:
           DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
 
