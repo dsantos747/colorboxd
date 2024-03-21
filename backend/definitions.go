@@ -94,6 +94,7 @@ type Entry struct {
 	Hex2               string   `json:"hex2"`
 }
 
+// All possible sort algorithms. Used in a reflect
 type SortVals struct {
 	Hue             int `json:"hue"`
 	Lum             int `json:"lum"`

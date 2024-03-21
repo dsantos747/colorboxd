@@ -1,7 +1,6 @@
 package colorboxd
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/lucasb-eyer/go-colorful"
@@ -66,15 +65,10 @@ func AlgoInverseStep(colors []Color, reps int) int {
 	l2 := int(color.l * float64(reps))
 	v2 := int(color.v * float64(reps))
 
-	// fmt.Printf("h2: %v; l2: %v; v2: %v.", h2, l2, v2)
-	// fmt.Printf("---- %v ----", h2/2)
-
 	if h2%2 == 1 {
 		v2 = reps - v2
 		l2 = reps - l2
 	}
-
-	// fmt.Print("    ", 100*h2+10*l2+v2, "     ")
 
 	return 10000*h2 + 100*l2 + v2 // Factors of 100 to allow reps >= 10
 }
@@ -147,7 +141,6 @@ func AlgoBRBW2(colors []Color) int {
 
 	domCol := dominantVividColour(colors, 0.08) // Greatly reduced vividness threshold, to reduce amount of posters in black/white zones.
 	if domCol != nil {
-		fmt.Printf("---- %f ----", (*domCol).h)
 		return int(((*domCol).h / 360) * order)
 	}
 

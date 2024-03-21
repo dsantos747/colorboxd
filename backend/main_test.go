@@ -3,11 +3,11 @@ package colorboxd
 import "testing"
 
 func TestLoadImage(t *testing.T) {
-	_, err := LoadImage("https://www.colorhexa.com/ff0000.png")
+	_, err := loadImage("https://www.colorhexa.com/ff0000.png")
 	if err != nil {
 		t.Errorf("Load valid image ff0000.png shouldn't error, had error: %v\n", err)
 	}
-	_, err = LoadImage("./images/test/invalid.txt")
+	_, err = loadImage("./images/test/invalid.txt")
 	if err == nil {
 		t.Errorf("Expected error loading invalid.txt; no error occured")
 	}
@@ -19,7 +19,7 @@ func TestGetRedImageInfo(t *testing.T) {
 	var expectedHue float64 = 0
 	expectedHex := "#FF0000"
 
-	redImage, err := LoadImage(imagePath)
+	redImage, err := loadImage(imagePath)
 	if err != nil {
 		t.Errorf("Load valid image 00ff00.png shouldn't error, had error: %v\n", err)
 	}
