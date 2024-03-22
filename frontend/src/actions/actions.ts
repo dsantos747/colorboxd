@@ -75,10 +75,7 @@ async function SortList(accessToken: string, listSummary: ListSummary, refresh =
     entries: entryListWithImages,
   };
 
-  // if (cacheMode === 'default') {
   listCache[listSummary.id] = list;
-  // }
-
   return list;
 }
 

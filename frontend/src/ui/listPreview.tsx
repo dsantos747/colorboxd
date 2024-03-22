@@ -20,14 +20,14 @@ export default function ListPreview() {
   });
   const [startIndex, setStartIndex] = useState<number>(0);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [imgLoadState, setImgLoadState] = useState<boolean>(false);
+  const [imgLoading, setImgLoading] = useState<boolean>(false);
 
   const handleSaveList = useCallback(() => {
     if (userToken && list) {
       setSubmitting(true);
-      setTimeout(() => {
-        setSubmitting(false);
-      }, 2000);
+      // setTimeout(() => {
+      //   setSubmitting(false);
+      // }, 2000);
       WriteSortedList(userToken.Token, list, startIndex, currSort.sortMode.id, currSort.reverse)
         .then((message) => {
           if (message[0].startsWith('List updated successfully')) {
@@ -39,6 +39,9 @@ export default function ListPreview() {
         })
         .catch((error) => {
           console.error('Error writing sorted list to letterboxd account:', error);
+        })
+        .finally(() => {
+          setSubmitting(false);
         });
     }
   }, [userToken, list, setList, startIndex, currSort]);
@@ -95,16 +98,16 @@ export default function ListPreview() {
           )
         );
       }
-      setImgLoadState(true);
+      setImgLoading(true);
     }
 
     setStartIndex(0);
     setCurrSort({ sortMode: sorts[0], visible: true, reverse: false });
-    setImgLoadState(false);
+    setImgLoading(false);
     loadImages().catch((e) => {
       console.error('Error loading images:', e);
     });
-  }, [list]);
+  }, [list, setImgLoading]);
 
   return (
     <div className='mx-auto max-w-6xl'>
@@ -143,7 +146,7 @@ export default function ListPreview() {
       </div>
 
       <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide md:h-[60vh] my-4 mx-auto'>
-        {imgLoadState &&
+        {imgLoading &&
           list?.entries.map((l, i) => {
             const ind = calcIndex(i, startIndex, list.entries.length, currSort.reverse);
             return (
@@ -158,7 +161,7 @@ export default function ListPreview() {
               </div>
             );
           })}
-        {!imgLoadState &&
+        {!imgLoading &&
           Array.from({ length: list?.entries.length ?? 10 }).map((_, i) => {
             return (
               <div key={i} className='m-1 text-center max-h-56 max-w-36 aspect-[2/3] '>

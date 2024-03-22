@@ -64,9 +64,6 @@ function UserLists() {
           return;
         }
         setFormSubmitting(true);
-        setTimeout(() => {
-          setFormSubmitting(false);
-        }, 2000);
         SortList(userToken.Token, listSummary[chosenListIndex])
           .then((lwi) => {
             setList(lwi);
@@ -74,6 +71,9 @@ function UserLists() {
           })
           .catch((error) => {
             console.error('Error getting sorted list:', error);
+          })
+          .finally(() => {
+            setFormSubmitting(false);
           });
       }
     },
