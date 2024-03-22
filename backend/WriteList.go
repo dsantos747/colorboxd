@@ -61,7 +61,12 @@ func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
 
 // Sort the list as per the specified method, then return a ListUpdateRequest, as required by Letterboxd endpoint
 func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod string, reverse bool) (*ListUpdateRequest, error) {
-	generateSortFunction := func(sortMethod string) (func(Entry, Entry) int, error) {
+	generateSortFunction := func(method string) (func(Entry, Entry) int, error) {
+		sortMethod := "Hue"
+		if len(method) > 0 {
+			sortMethod = strings.ToUpper(method[:1]) + method[1:]
+		}
+
 		// Check if sortMethod is valid
 		if _, ok := reflect.TypeOf(SortVals{}).FieldByName(sortMethod); !ok {
 			return nil, errors.New("error: provided sort method not recognized")
