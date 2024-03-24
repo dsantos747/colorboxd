@@ -3,7 +3,6 @@ package colorboxd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -39,19 +38,19 @@ func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
 	var responseData WriteListRequest
 	err = json.NewDecoder(r.Body).Decode(&responseData)
 	if err != nil {
-		http.Error(w, "Missing or empty 'accessToken' query parameter", http.StatusBadRequest)
+		ReturnError(w, fmt.Errorf("failed to decode request data: %w", err).Error(), http.StatusBadRequest)
 		return
 	}
 
 	listUpdateRequest, err := prepareListUpdateRequest(responseData.List, responseData.Offset, responseData.SortMethod, responseData.Reverse)
 	if err != nil {
-		http.Error(w, "Error preparing list update request body", http.StatusInternalServerError)
+		ReturnError(w, fmt.Errorf("couldn't prepare list update request body: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
 
 	message, err := writeListSorting(responseData.AccessToken, responseData.List.ID, *listUpdateRequest)
 	if err != nil {
-		http.Error(w, "Error updating user list", http.StatusInternalServerError)
+		ReturnError(w, fmt.Errorf("couldn't update user list: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -69,7 +68,7 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 
 		// Check if sortMethod is valid
 		if _, ok := reflect.TypeOf(SortVals{}).FieldByName(sortMethod); !ok {
-			return nil, errors.New("error: provided sort method not recognized")
+			return nil, fmt.Errorf("provided sort method not recognized")
 		}
 
 		// Generate the sort function from the type
@@ -95,7 +94,6 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 	for i, entry := range list.Entries {
 		initPos, err := strconv.Atoi(entry.EntryID)
 		if err != nil {
-			fmt.Println("Error parsing entryId to int")
 			return nil, err
 		}
 		endPos := ((i + n) - offset) % n
@@ -154,13 +152,12 @@ func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[
 
 	response, err := MakeHTTPRequest(method, endpoint, bytes.NewReader(body), headers)
 	if err != nil {
-		return nil, fmt.Errorf("error making HTTP request: %v", err)
+		return nil, err
 	}
 	defer response.Body.Close()
 
 	var responseData ListUpdateResponse
 	if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
@@ -170,7 +167,7 @@ func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[
 			message = append(message, fmt.Sprintf("%s: %s - %s", m.Type, m.Code, m.Title))
 		}
 		errorStr := "The letterboxd API responded with the following errors: " + strings.Join(message, "; ")
-		return &message, errors.New(errorStr)
+		return &message, fmt.Errorf(errorStr)
 	}
 
 	message = []string{"List updated successfully"}

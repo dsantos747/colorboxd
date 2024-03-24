@@ -1,10 +1,18 @@
 package colorboxd
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 )
 
+func ReturnError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "text/plain")
+	http.Error(w, message, statusCode)
+}
+
+// Makes an HTTP request of the required method to the specified endpoint.
+// If response code is >= 400 , returns an error with response.Status
 func MakeHTTPRequest(method, endpoint string, body io.Reader, headers map[string]string) (*http.Response, error) {
 	// Prepare the request
 	req, err := http.NewRequest(method, endpoint, body)
@@ -21,7 +29,10 @@ func MakeHTTPRequest(method, endpoint string, body io.Reader, headers map[string
 	if err != nil {
 		return nil, err
 	}
-	// defer response.Body.Close()
+	if response.StatusCode >= 400 {
+		err = fmt.Errorf("%s", response.Status)
+		return nil, err
+	}
 
 	return response, nil
 }

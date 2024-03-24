@@ -3,7 +3,6 @@ package colorboxd
 import (
 	"cmp"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"image"
 	"net/http"
@@ -38,33 +37,33 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	// Read accessToken from query url - return error if not present
 	accessToken := r.URL.Query().Get("accessToken")
 	if accessToken == "" {
-		http.Error(w, "Missing or empty 'accessToken' query parameter", http.StatusBadRequest)
+		ReturnError(w, "Missing or empty 'accessToken' query parameter", http.StatusBadRequest)
 		return
 	}
 
 	// Get List id
 	listId := r.URL.Query().Get("listId")
 	if listId == "" {
-		http.Error(w, "Missing or empty 'listId' query parameter", http.StatusBadRequest)
+		ReturnError(w, "Missing or empty 'listId' query parameter", http.StatusBadRequest)
 		return
 	}
 
 	// Get Entries from List
 	listEntries, err := getListEntries(accessToken, listId)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting entries from list: %v", err), http.StatusInternalServerError)
+		ReturnError(w, fmt.Errorf("failed to retrieve entries from list: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
 
 	entriesWithImageInfo, err := processListImages(listEntries)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error processing posters for list entries: %v", err), http.StatusInternalServerError)
+		ReturnError(w, fmt.Errorf("failed to process posters for list entries: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
 
 	entriesWithRanking, err := assignListRankings(entriesWithImageInfo)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error assigning sort rankings for list: %v", err), http.StatusInternalServerError)
+		ReturnError(w, fmt.Errorf("failed assigning sort rankings for list: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -145,10 +144,11 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 	var wg sync.WaitGroup
 	imageChan := make(chan Image, n)
 	colorChan := make(chan Entry, n)
+	errChan := make(chan error, n)
 
 	for _, entry := range *listEntries {
 		wg.Add(1)
-		go concurrentLoadImage(entry, &wg, imageChan)
+		go concurrentLoadImage(entry, &wg, imageChan, errChan)
 	}
 
 	go func() {
@@ -160,14 +160,15 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 		images = append(images, img)
 	}
 
-	if len(images) != n {
-		err := errors.New("error: images slice length does not match image paths slice length")
+	select {
+	case err := <-errChan:
 		return nil, err
+	default:
 	}
 
 	for i := 0; i < n; i++ {
 		wg.Add(1)
-		go concurrentGetImageInfo(images[i], &wg, colorChan)
+		go concurrentGetImageInfo(images[i], &wg, colorChan, errChan)
 	}
 
 	go func() {
@@ -195,6 +196,8 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 		(*listEntries)[i].SortVals.BRBW2 = AlgoBRBW2(e.ImageInfo.Colors)
 	}
 
+	// where error handling?
+
 	return listEntries, nil
 }
 
@@ -219,12 +222,12 @@ func loadImage(path string) (image.Image, error) {
 	return img, nil
 }
 
-func concurrentLoadImage(entry Entry, wg *sync.WaitGroup, imageChan chan<- Image) {
+func concurrentLoadImage(entry Entry, wg *sync.WaitGroup, imageChan chan<- Image, errChan chan<- error) {
 	defer wg.Done()
 
 	img, err := loadImage(entry.ImageInfo.Path)
 	if err != nil {
-		fmt.Printf("Error loading image %s: %v\n", entry.ImageInfo.Path, err)
+		errChan <- fmt.Errorf("error loading image %s: %v", entry.ImageInfo.Path, err)
 		return
 	}
 
@@ -276,12 +279,12 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	return &entry, nil
 }
 
-func concurrentGetImageInfo(image Image, wg *sync.WaitGroup, colorChan chan<- Entry) {
+func concurrentGetImageInfo(image Image, wg *sync.WaitGroup, colorChan chan<- Entry, errChan chan<- error) {
 	defer wg.Done()
 
 	imgColorInfo, err := getImageInfo(image.info, image.img)
 	if err != nil {
-		fmt.Printf("Error getting image color info for poster for %s: %v\n", image.info.Name, err)
+		errChan <- fmt.Errorf("error getting image color info for poster for %s: %v", image.info.Name, err)
 		return
 	}
 

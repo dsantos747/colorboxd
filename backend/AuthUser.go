@@ -29,25 +29,24 @@ func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
 	// Read authCode from query url - return error if not present
 	authCode := r.URL.Query().Get("authCode")
 	if authCode == "" {
-		http.Error(w, "Missing or empty 'authCode' query parameter", http.StatusBadRequest)
+		ReturnError(w, "Missing or empty 'authCode' query parameter", http.StatusBadRequest)
 		return
 	}
 
 	// Get Access Token
 	accessTokenResponse, err := getAccessToken(authCode)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting access token: %v", err), http.StatusInternalServerError)
+		ReturnError(w, fmt.Errorf("could not create valid access token: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
 	if accessTokenResponse.AccessToken == "" {
-		// NOTE - are we sure we want to error this out? Or just return empty?
-		// http.Error(w, "No access token in response", http.StatusInternalServerError)
+		ReturnError(w, fmt.Errorf("could not generate access token from provided auth code: %w", err).Error(), http.StatusBadRequest)
 		return
 	}
 
 	member, err := getMemberId(accessTokenResponse.AccessToken)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting member id: %v", err), http.StatusInternalServerError)
+		ReturnError(w, fmt.Errorf("could not retrieve member ID: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -81,7 +80,7 @@ func getAccessToken(authCode string) (*AccessTokenResponse, error) {
 
 	response, err := MakeHTTPRequest(method, endpoint, strings.NewReader(formData.Encode()), headers)
 	if err != nil {
-		return nil, fmt.Errorf("error making HTTP request: %v", err)
+		return nil, err
 	}
 	defer response.Body.Close()
 
@@ -102,18 +101,16 @@ func getMemberId(token string) (*Member, error) {
 
 	response, err := MakeHTTPRequest(method, endpoint, nil, headers)
 	if err != nil {
-		return nil, fmt.Errorf("error making HTTP request: %v", err)
+		return nil, err
 	}
 	defer response.Body.Close()
 
 	var responseData map[string]json.RawMessage
 	if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	var member Member
 	if err = json.Unmarshal(responseData["member"], &member); err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
