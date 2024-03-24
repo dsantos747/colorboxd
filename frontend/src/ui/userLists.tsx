@@ -46,7 +46,7 @@ function UserLists({ setError }: Props) {
       .catch((error: string) => {
         setError(error);
       });
-  }, [userToken, setListSummary]);
+  }, [userToken, setListSummary, setError]);
 
   useEffect(() => {
     const fadeTimer = setTimeout(() => {
@@ -79,7 +79,7 @@ function UserLists({ setError }: Props) {
           });
       }
     },
-    [chosenListIndex, userToken, listSummary, setList]
+    [chosenListIndex, userToken, listSummary, setList, setError]
   );
 
   const handleRefreshLists = useCallback(() => {
@@ -94,7 +94,7 @@ function UserLists({ setError }: Props) {
       .catch((error) => {
         setError(error);
       });
-  }, [setListSummary, userToken, setList]);
+  }, [setListSummary, userToken, setList, setError]);
 
   const handleMenuState = useCallback(() => {
     setMenuOpen(!menuOpen);

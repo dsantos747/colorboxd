@@ -3,6 +3,8 @@ import UserLists from '../ui/userLists';
 import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import ListPreview from '../ui/listPreview';
 import Error from '../errorDiv';
+import { CoffeeButton } from '../ui/buttons';
+import NoList from '../ui/noList';
 
 const UserContent = () => {
   const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
@@ -19,7 +21,7 @@ const UserContent = () => {
               <div className='flex-grow-0'>{<UserLists setError={setError} />}</div>
               <div className='grow'>
                 {list && <ListPreview setError={setError} />}
-                {!list && <div className='text-xl text-gray-500 my-auto text-center'>Choose a list and let&apos;s sort!</div>}
+                {!list && <NoList />}
               </div>
             </>
           )}

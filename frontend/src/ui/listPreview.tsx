@@ -46,7 +46,7 @@ export default function ListPreview({ setError }: Props) {
           setSubmitting(false);
         });
     }
-  }, [userToken, list, setList, startIndex, currSort]);
+  }, [userToken, list, setList, startIndex, currSort, setError]);
 
   const handleCancel = useCallback(() => {
     if (userToken && list) {

@@ -36,6 +36,14 @@ const SignOutButton = () => {
   );
 };
 
+const CoffeeButton = () => {
+  return (
+    <a href='https://ko-fi.com/danielsantosdev' className={`${happyButtonStyle} hover:bg-teal-800 hover:text-white`}>
+      Buy me a coffee?
+    </a>
+  );
+};
+
 type ButtonProps = {
   readonly handleClick: React.MouseEventHandler<HTMLButtonElement>;
   readonly theme: 'happy' | 'sad';
@@ -53,4 +61,4 @@ const Button = ({ handleClick, theme, type = 'button', disabled = false, childre
   );
 };
 
-export { LoginButton, SignOutButton, Button };
+export { LoginButton, SignOutButton, CoffeeButton, Button };
