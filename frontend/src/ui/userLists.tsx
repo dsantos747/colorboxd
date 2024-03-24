@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { Dispatch, SetStateAction, useCallback, useContext, useEffect, useState } from 'react';
 import {
   ListContext,
   ListContextType,
@@ -11,7 +11,6 @@ import { ClearListCache, GetLists, SortList } from '../actions/actions';
 import { ArrowPathIcon } from '@heroicons/react/16/solid';
 
 const minListLength = 20;
-
 const listTooShortMessages = [
   "Don't waste my time...",
   'You call that a list?',
@@ -19,10 +18,13 @@ const listTooShortMessages = [
   `Give me at least ${minListLength} films.`,
   `Give me at least ${minListLength} films.`,
 ] as const;
-
 type listTypes = (typeof listTooShortMessages)[number];
 
-function UserLists() {
+type Props = {
+  readonly setError: Dispatch<SetStateAction<string | null>>;
+};
+
+function UserLists({ setError }: Props) {
   const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
   const { listSummary, setListSummary } = useContext(ListSummaryContext) as ListSummaryContextType;
   const { list, setList } = useContext(ListContext) as ListContextType;
@@ -41,8 +43,8 @@ function UserLists() {
         setListSummary(ls);
         setChosenListIndex(0);
       })
-      .catch((error) => {
-        console.error('Error getting user lists:', error);
+      .catch((error: string) => {
+        setError(error);
       });
   }, [userToken, setListSummary]);
 
@@ -70,7 +72,7 @@ function UserLists() {
             setMenuOpen(false);
           })
           .catch((error) => {
-            console.error('Error getting sorted list:', error);
+            setError(error);
           })
           .finally(() => {
             setFormSubmitting(false);
@@ -90,7 +92,7 @@ function UserLists() {
         setChosenListIndex(0);
       })
       .catch((error) => {
-        console.error('Error getting user lists:', error);
+        setError(error);
       });
   }, [setListSummary, userToken, setList]);
 

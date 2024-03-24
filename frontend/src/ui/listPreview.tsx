@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { Dispatch, SetStateAction, useCallback, useContext, useEffect, useState } from 'react';
 import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import { WriteSortedList } from '../actions/actions';
 import { Button } from './buttons';
@@ -10,7 +10,11 @@ function calcIndex(i: number, startIndex: number, len: number, reverse: boolean)
   return (ind + startIndex) % len;
 }
 
-export default function ListPreview() {
+type Props = {
+  readonly setError: Dispatch<SetStateAction<string | null>>;
+};
+
+export default function ListPreview({ setError }: Props) {
   const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
   const { list, setList } = useContext(ListContext) as ListContextType;
   const [currSort, setCurrSort] = useState<SortModeType>({
@@ -25,20 +29,18 @@ export default function ListPreview() {
   const handleSaveList = useCallback(() => {
     if (userToken && list) {
       setSubmitting(true);
-      // setTimeout(() => {
-      //   setSubmitting(false);
-      // }, 2000);
       WriteSortedList(userToken.Token, list, startIndex, currSort.sortMode.id, currSort.reverse)
         .then((message) => {
           if (message[0].startsWith('List updated successfully')) {
             setStartIndex(0);
             setList(null);
           } else {
-            console.error(message);
+            message.forEach((m) => console.error(m));
+            setError('Error writing list to Letterboxd account.');
           }
         })
         .catch((error) => {
-          console.error('Error writing sorted list to letterboxd account:', error);
+          setError(error);
         })
         .finally(() => {
           setSubmitting(false);

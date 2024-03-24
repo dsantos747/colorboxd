@@ -2,20 +2,20 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './main.css';
-import Error from './error';
 import RootLayout from './routes/RootLayout';
 import Home from './routes/Home';
 import UserAuth from './routes/UserAuth';
 import { UserTokenProvider, ListSummaryProvider, ListProvider } from './lib/contexts';
+import RouterError from './routerError';
 
 const router = createBrowserRouter([
   {
     path: '/',
     element: <RootLayout />,
-    errorElement: <Error />,
+    errorElement: <RouterError />,
     children: [
-      { path: '/', element: <Home />, errorElement: <Error /> },
-      { path: '/user', element: <UserAuth />, errorElement: <Error /> },
+      { path: '/', element: <Home />, errorElement: <RouterError /> },
+      { path: '/user', element: <UserAuth />, errorElement: <RouterError /> },
     ],
   },
 ]);

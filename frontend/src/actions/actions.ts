@@ -20,8 +20,12 @@ async function GetAccessTokenAndUser(authCode: string, refresh = false): Promise
     credentials: 'include',
   });
   if (!response.ok) {
-    const errorText = `Error code: ${response.status}; message: ${response.statusText}`;
-    console.error(errorText);
+    let errorText;
+    try {
+      errorText = await response.text();
+    } catch (error) {
+      errorText = `Error code: ${response.status}; Message: ${response.statusText}`;
+    }
     throw new Error(errorText);
   }
 
@@ -39,8 +43,12 @@ async function GetLists(accessToken: string, userId: string, refresh = false): P
     credentials: 'include',
   });
   if (!response.ok) {
-    const errorText = `Error code: ${response.status}; message: ${response.statusText}`;
-    console.error(errorText);
+    let errorText;
+    try {
+      errorText = await response.text();
+    } catch (error) {
+      errorText = `Error code: ${response.status}; Message: ${response.statusText}`;
+    }
     throw new Error(errorText);
   }
 
@@ -63,8 +71,12 @@ async function SortList(accessToken: string, listSummary: ListSummary, refresh =
     credentials: 'include',
   });
   if (!response.ok) {
-    const errorText = `Error code: ${response.status}; message: ${response.statusText}`;
-    console.error(errorText);
+    let errorText;
+    try {
+      errorText = await response.text();
+    } catch (error) {
+      errorText = `Error code: ${response.status}; Message: ${response.statusText}`;
+    }
     throw new Error(errorText);
   }
 
@@ -86,7 +98,7 @@ async function WriteSortedList(
   sortMethod: SortModeType['sortMode']['id'],
   reverse: boolean,
   refresh = false
-): Promise<string> {
+): Promise<string[]> {
   const cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
   const requestBody = { accessToken, list, offset, sortMethod, reverse };
@@ -101,12 +113,16 @@ async function WriteSortedList(
     body: JSON.stringify(requestBody),
   });
   if (!response.ok) {
-    const errorText = `Error code: ${response.status}; message: ${response.statusText}`;
-    console.error(errorText);
+    let errorText;
+    try {
+      errorText = await response.text();
+    } catch (error) {
+      errorText = `Error code: ${response.status}; Message: ${response.statusText}`;
+    }
     throw new Error(errorText);
   }
 
-  const message = await response.json();
+  const message: string[] = await response.json();
   return message;
 }
 
