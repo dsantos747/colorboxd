@@ -1,4 +1,4 @@
-import { CoffeeButton } from '../ui/buttons';
+import { CoffeeButton } from './buttons';
 
 const NoList = () => {
   return (

@@ -56,6 +56,7 @@ export default function ListPreview({ setError }: Props) {
 
   const handleShowOriginal = useCallback(() => {
     setCurrSort({ sortMode: currSort.sortMode, visible: !currSort.visible, reverse: false });
+    setStartIndex(0);
     if (currSort.visible) {
       list?.entries.sort((a, b) => {
         return Number(a.entryId) - Number(b.entryId);
@@ -65,7 +66,7 @@ export default function ListPreview({ setError }: Props) {
         return a.sorts[currSort.sortMode.id] - b.sorts[currSort.sortMode.id];
       });
     }
-  }, [currSort, list]);
+  }, [currSort, list, setStartIndex]);
 
   const handleReverseOrder = useCallback(() => {
     setCurrSort({ sortMode: currSort.sortMode, visible: currSort.visible, reverse: !currSort.reverse });

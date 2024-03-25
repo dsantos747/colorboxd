@@ -10,7 +10,7 @@ const RouterError = () => {
     <>
       <Nav />
       <div className='min-h-screen flex flex-col justify-center items-center'>
-        <ErrorDiv message={`Message: ${errorText}`}></ErrorDiv>
+        <ErrorDiv message={`Message: ${errorText}`} />
       </div>
     </>
   );

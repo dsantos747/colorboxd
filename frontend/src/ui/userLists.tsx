@@ -59,6 +59,7 @@ function UserLists({ setError }: Props) {
   const handleFormSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      const isMobile = window.matchMedia('(max-width: 768px)');
 
       if (chosenListIndex !== undefined && userToken && listSummary) {
         if (listSummary[chosenListIndex].filmCount < minListLength) {
@@ -69,7 +70,9 @@ function UserLists({ setError }: Props) {
         SortList(userToken.Token, listSummary[chosenListIndex])
           .then((lwi) => {
             setList(lwi);
-            setMenuOpen(false);
+            if (isMobile.matches) {
+              setMenuOpen(false);
+            }
           })
           .catch((error) => {
             setError(error);
