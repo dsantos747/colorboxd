@@ -22,21 +22,23 @@ type listTypes = (typeof listTooShortMessages)[number];
 
 type Props = {
   readonly setError: Dispatch<SetStateAction<string | null>>;
+  readonly loading: boolean;
+  readonly setLoading: Dispatch<SetStateAction<boolean>>;
 };
 
-function UserLists({ setError }: Props) {
+function ListMenu({ setError, loading, setLoading }: Props) {
   const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
   const { listSummary, setListSummary } = useContext(ListSummaryContext) as ListSummaryContextType;
   const { list, setList } = useContext(ListContext) as ListContextType;
   const [chosenListIndex, setChosenListIndex] = useState<number>();
   const [listLengthMessage, setListLengthMessage] = useState<listTypes | null>();
   const [menuOpen, setMenuOpen] = useState<boolean>(true);
-  const [formSubmitting, setFormSubmitting] = useState<boolean>(false);
 
   if (!userToken) {
     throw new Error('Cannot render user lists - no authenticated user.');
   }
 
+  // Get user lists on mount
   useEffect(() => {
     GetLists(userToken.Token, userToken.UserId)
       .then((ls) => {
@@ -48,11 +50,11 @@ function UserLists({ setError }: Props) {
       });
   }, [userToken, setListSummary, setError]);
 
+  // "list too short" message timer
   useEffect(() => {
     const fadeTimer = setTimeout(() => {
       setListLengthMessage(null);
     }, 3000);
-
     return () => clearTimeout(fadeTimer);
   }, [listLengthMessage]);
 
@@ -66,7 +68,7 @@ function UserLists({ setError }: Props) {
           setListLengthMessage(listTooShortMessages[Math.floor(Math.random() * listTooShortMessages.length)]);
           return;
         }
-        setFormSubmitting(true);
+        setLoading(true);
         SortList(userToken.Token, listSummary[chosenListIndex])
           .then((lwi) => {
             setList(lwi);
@@ -78,11 +80,11 @@ function UserLists({ setError }: Props) {
             setError(error);
           })
           .finally(() => {
-            setFormSubmitting(false);
+            setLoading(false);
           });
       }
     },
-    [chosenListIndex, userToken, listSummary, setList, setError]
+    [chosenListIndex, userToken, listSummary, setList, setError, setLoading]
   );
 
   const handleRefreshLists = useCallback(() => {
@@ -156,9 +158,9 @@ function UserLists({ setError }: Props) {
           </div>
           <button
             type='submit'
-            disabled={formSubmitting}
+            disabled={loading}
             className='enabled:hover:text-teal-400 enabled:hover:translate-x-0.5 transition-all disabled:text-gray-500 font-semibold border-b-[1px] border-indigo-500'>
-            {formSubmitting ? 'Please wait...' : "Let's Sort!"}
+            {loading ? 'Please wait...' : "Let's Sort!"}
           </button>
           <p className='text-xs text-red-400 absolute'>{listLengthMessage}</p>
         </form>
@@ -167,4 +169,4 @@ function UserLists({ setError }: Props) {
   );
 }
 
-export default UserLists;
+export default ListMenu;

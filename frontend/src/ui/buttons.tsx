@@ -38,7 +38,7 @@ const SignOutButton = () => {
 
 const CoffeeButton = () => {
   return (
-    <a href='https://ko-fi.com/danielsantosdev' className={`${happyButtonStyle} hover:bg-teal-800 hover:text-white`}>
+    <a href='https://ko-fi.com/danielsantosdev' className={`${happyButtonStyle} hover:bg-teal-800 hover:text-white mx-2`}>
       Buy me a coffee?
     </a>
   );

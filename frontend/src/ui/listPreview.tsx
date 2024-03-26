@@ -87,20 +87,19 @@ export default function ListPreview({ setError }: Props) {
   );
 
   useEffect(() => {
+    // Image loading skeleton
     async function loadImages() {
-      if (list?.entries) {
-        await Promise.all(
-          list?.entries.map(
-            (entry) =>
-              new Promise((resolve, reject) => {
-                const img = new Image();
-                img.src = entry.posterUrl;
-                img.onload = resolve;
-                img.onerror = reject;
-              })
-          )
-        );
-      }
+      if (!list?.entries) return;
+      const imgPromises = list?.entries.map(
+        (entry) =>
+          new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = entry.posterUrl;
+            img.onload = resolve;
+            img.onerror = reject;
+          })
+      );
+      await Promise.all(imgPromises);
       setImgLoading(true);
     }
 

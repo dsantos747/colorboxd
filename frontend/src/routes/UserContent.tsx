@@ -1,5 +1,5 @@
 import { useContext, useState } from 'react';
-import UserLists from '../ui/userLists';
+import ListMenu from '../ui/listMenu';
 import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
 import ListPreview from '../ui/listPreview';
 import Error from '../errorDiv';
@@ -9,6 +9,7 @@ const UserContent = () => {
   const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
   const { list } = useContext(ListContext) as ListContextType;
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   return (
     <div className='flex flex-col justify-center pt-20 pb-4 w-full'>
@@ -17,11 +18,8 @@ const UserContent = () => {
           {error && <Error message={error.toString()} />}
           {!error && (
             <>
-              <div className='flex-grow-0'>{<UserLists setError={setError} />}</div>
-              <div className='grow'>
-                {list && <ListPreview setError={setError} />}
-                {!list && <NoList />}
-              </div>
+              <div className='flex-grow-0'>{<ListMenu setError={setError} loading={loading} setLoading={setLoading} />}</div>
+              <div className='grow'>{list ? <ListPreview setError={setError} /> : <NoList loading={loading} />}</div>
             </>
           )}
         </div>
