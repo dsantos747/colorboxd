@@ -10,10 +10,12 @@ const sadButtonStyle =
   'text-sm sm:text-base py-2 px-3 sm:px-5 h-min rounded-lg bg-gray-700 bg-opacity-50 text-orange-500 enabled:hover:bg-opacity-20 enabled:hover:text-gray-400 enabled:active:bg-opacity-10 enabled:active:text-gray-500 disabled:bg-opacity-20 disabled:text-gray-400 transition-all duration-200';
 
 const LoginButton = () => {
+  const authorisationUrl = process.env.REACT_APP_LBOXD_AUTH_URL ?? 'https://colorboxd.com/';
+
   return (
-    <Link to={'./user'} className={`${happyButtonStyle}`}>
+    <a href={authorisationUrl} className={`${happyButtonStyle}`}>
       Get Started
-    </Link>
+    </a>
   );
 };
 

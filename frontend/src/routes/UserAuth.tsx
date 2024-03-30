@@ -4,10 +4,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import UserContent from './UserContent';
 import Cookies from 'js-cookie';
 import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
-import { UserToken } from '../lib/definitions';
 
 function UserAuth() {
-  const authorisationUrl = process.env.REACT_APP_LBOXD_AUTH_URL ?? 'https://colorboxd.com/';
+  const homeUrl = process.env.REACT_APP_BASE_URL ?? 'https://colorboxd.com/';
 
   const { userToken, setUserToken } = useContext(UserTokenContext) as UserTokenContextType;
 
@@ -19,31 +18,40 @@ function UserAuth() {
   useEffect(() => {
     const handleTokenStatus = async () => {
       if (!userToken) {
-        const cookieUserToken = Cookies.get('userToken');
-        if (cookieUserToken) {
-          const cookieToken: UserToken = JSON.parse(cookieUserToken);
-          setUserToken(cookieToken);
-        } else if (authCode) {
-          try {
-            const fetchUserToken = await GetAccessTokenAndUser(authCode);
-            setUserToken(fetchUserToken);
-          } catch (error) {
-            console.error('Error getting access token:', error);
-          }
-        } else {
-          window.location.href = authorisationUrl;
-        }
+        await handleUserToken();
       } else if (authCode) {
-        const { pathname, search } = location;
-        const updatedQueryParams = new URLSearchParams(search);
-        updatedQueryParams.delete('code');
-        navigate(`${pathname}?${updatedQueryParams.toString()}`);
+        handleAuthCode();
       }
     };
+
+    const handleUserToken = async () => {
+      const cookieUserToken = Cookies.get('userToken');
+      if (cookieUserToken) {
+        setUserToken(JSON.parse(cookieUserToken));
+      } else if (authCode) {
+        try {
+          const fetchUserToken = await GetAccessTokenAndUser(authCode);
+          setUserToken(fetchUserToken);
+          handleAuthCode();
+        } catch (error) {
+          console.error('Error getting access token:', error);
+        }
+      } else {
+        window.location.href = homeUrl;
+      }
+    };
+
+    const handleAuthCode = () => {
+      const { pathname, search } = location;
+      const updatedQueryParams = new URLSearchParams(search);
+      updatedQueryParams.delete('code');
+      navigate(`${pathname}?${updatedQueryParams.toString()}`);
+    };
+
     handleTokenStatus().catch((e) => {
       console.error('Error handling user authorisation:', e);
     });
-  }, [authCode, userToken, setUserToken, authorisationUrl, location, navigate]);
+  }, [authCode, userToken, setUserToken, homeUrl, location, navigate]);
 
   return userToken && <UserContent />;
 }
