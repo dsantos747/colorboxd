@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { UserTokenContext, ListSummaryContext, ListContext } from '../lib/contexts';
-import UserAuth from '../routes/UserAuth';
+import UserPage from '../routes/UserPage';
 import { List, ListSummary, UserToken } from '../lib/definitions';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -64,7 +64,7 @@ const mockUserPage = (mockToken: UserToken | null, mockList: List | null) => {
       <ListSummaryContext.Provider value={{ listSummary: testListSummary, setListSummary: jest.fn() }}>
         <ListContext.Provider value={{ list: mockList, setList: jest.fn() }}>
           <MemoryRouter>
-            <UserAuth />
+            <UserPage />
           </MemoryRouter>
         </ListContext.Provider>
       </ListSummaryContext.Provider>

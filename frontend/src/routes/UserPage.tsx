@@ -1,19 +1,24 @@
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { GetAccessTokenAndUser } from '../actions/actions';
 import { useLocation, useNavigate } from 'react-router-dom';
-import UserContent from './UserContent';
 import Cookies from 'js-cookie';
-import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
+import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } from '../lib/contexts';
+import ListMenu from '../ui/listMenu';
+import ListPreview from '../ui/listPreview';
+import Error from '../errorDiv';
+import NoList from '../ui/noList';
 
-function UserAuth() {
-  const homeUrl = process.env.REACT_APP_BASE_URL ?? 'https://colorboxd.com/';
-
+function UserPage() {
   const { userToken, setUserToken } = useContext(UserTokenContext) as UserTokenContextType;
+  const { list } = useContext(ListContext) as ListContextType;
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const navigate = useNavigate();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const authCode = queryParams.get('code');
+  const homeUrl = process.env.REACT_APP_BASE_URL ?? 'https://colorboxd.com/';
 
   useEffect(() => {
     const handleTokenStatus = async () => {
@@ -53,7 +58,23 @@ function UserAuth() {
     });
   }, [authCode, userToken, setUserToken, homeUrl, location, navigate]);
 
-  return userToken && <UserContent />;
+  return (
+    userToken && (
+      <div className='flex flex-col justify-center pt-20 pb-4 w-full'>
+        {userToken && (
+          <div className='flex flex-col md:flex-row md:justify-between items-center mx-8 md:mx-16 gap-6 2xl:mx-32'>
+            {error && <Error message={error.toString()} />}
+            {!error && (
+              <>
+                <div className='flex-grow-0'>{<ListMenu setError={setError} loading={loading} setLoading={setLoading} />}</div>
+                <div className='grow'>{list ? <ListPreview setError={setError} /> : <NoList loading={loading} />}</div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  );
 }
 
-export default UserAuth;
+export default UserPage;

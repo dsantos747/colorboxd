@@ -147,7 +147,7 @@ export default function ListPreview({ setError }: Props) {
         </form>
       </div>
 
-      <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto scrollbar-hide md:h-[60vh] my-4 mx-auto'>
+      <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto customScrollbar md:h-[60vh] my-4 mx-auto'>
         {imgLoading &&
           list?.entries.map((l, i) => {
             const ind = calcIndex(i, startIndex, list.entries.length, currSort.reverse);

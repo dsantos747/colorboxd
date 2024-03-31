@@ -15,13 +15,17 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+.customScrollbar {
+  /* -ms-overflow-style: none; */
+  /* scrollbar-width: none; */
+  scrollbar-color: #6b7280 transparent;
 }
 
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.customScrollbar::-webkit-scrollbar {
+  background: #6b7280;
+}
+.customScrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
 }
 
 .animate-fadeOut {

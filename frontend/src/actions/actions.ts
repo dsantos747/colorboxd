@@ -65,6 +65,9 @@ function ClearListCache() {
 async function SortList(accessToken: string, listSummary: ListSummary, refresh = false): Promise<List> {
   const cacheMode: RequestCache = refresh || !listCache[listSummary.id] ? 'reload' : 'default';
 
+  // const cacheMode: RequestCache = 'reload';
+  // listSummary.id = 'tqjLE'; // Has >1500 entries!!!
+
   const response = await fetch(`${BACKEND_URL1}SortList?accessToken=${encodeURIComponent(accessToken)}&listId=${listSummary.id}`, {
     method: 'GET',
     cache: cacheMode,

@@ -4,9 +4,9 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './main.css';
 import RootLayout from './routes/RootLayout';
 import Home from './routes/Home';
-import UserAuth from './routes/UserAuth';
 import { UserTokenProvider, ListSummaryProvider, ListProvider } from './lib/contexts';
 import RouterError from './routerError';
+import UserPage from './routes/UserPage';
 
 const router = createBrowserRouter([
   {
@@ -15,7 +15,7 @@ const router = createBrowserRouter([
     errorElement: <RouterError />,
     children: [
       { path: '/', element: <Home />, errorElement: <RouterError /> },
-      { path: '/user', element: <UserAuth />, errorElement: <RouterError /> },
+      { path: '/user', element: <UserPage />, errorElement: <RouterError /> },
     ],
   },
 ]);

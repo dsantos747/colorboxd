@@ -112,13 +112,13 @@ function ListMenu({ setError, loading, setLoading }: Props) {
   }, [list]);
 
   return (
-    <div className='w-max bg-white bg-opacity-5 rounded-2xl py-6 px-8 outline-indigo-400 mx-auto md:mx-0 min-w-40 md:min-w-56'>
+    <div className='w-max bg-white bg-opacity-5 rounded-2xl py-6 px-8 outline-indigo-400 mx-auto md:mx-0 min-w-48 md:min-w-56'>
       <div className='flex justify-between'>
         <button type='button' onClick={handleMenuState}>
           <h2 className='text-lg'>{menuOpen ? 'Your lists:' : 'Show Lists'}</h2>
         </button>
         {menuOpen && (
-          <button type='button' onClick={handleRefreshLists}>
+          <button type='button' onClick={handleRefreshLists} title='Refresh Lists'>
             <ArrowPathIcon className='h-5 w-5 text-gray-500 mr-1 hover:text-teal-400 transition-colors duration-150' />
           </button>
         )}
