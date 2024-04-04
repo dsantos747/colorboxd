@@ -24,7 +24,6 @@ export default function ListPreview({ setError }: Props) {
   });
   const [startIndex, setStartIndex] = useState<number>(0);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [imgLoading, setImgLoading] = useState<boolean>(false);
 
   const handleSaveList = useCallback(() => {
     if (userToken && list) {
@@ -86,34 +85,15 @@ export default function ListPreview({ setError }: Props) {
     [list]
   );
 
+  // Reset sort/offset on list change
   useEffect(() => {
-    // Image loading skeleton
-    async function loadImages() {
-      if (!list?.entries) return;
-      const imgPromises = list?.entries.map(
-        (entry) =>
-          new Promise((resolve, reject) => {
-            const img = new Image();
-            img.src = entry.posterUrl;
-            img.onload = resolve;
-            img.onerror = reject;
-          })
-      );
-      await Promise.all(imgPromises);
-      setImgLoading(true);
-    }
-
     setStartIndex(0);
     setCurrSort({ sortMode: sorts[0], visible: true, reverse: false });
-    setImgLoading(false);
-    loadImages().catch((e) => {
-      console.error('Error loading images:', e);
-    });
-  }, [list, setImgLoading]);
+  }, [list]);
 
   return (
     <div className='mx-auto max-w-6xl'>
-      <div className='flex flex-wrap justify-between'>
+      <div className='flex flex-wrap justify-between text-sm md:text-base gap-x-4'>
         <p className='my-auto'>Click a poster to make it the start of the list.</p>
         <form className='flex justify-end flex-wrap align-middle items-center select-none gap-2 ml-auto'>
           <div className='mx-auto'>
@@ -141,36 +121,27 @@ export default function ListPreview({ setError }: Props) {
           <div className='mx-auto'>
             <input type='checkbox' id='reverseOrder' className='hidden peer' checked={currSort.reverse} onChange={handleReverseOrder} />
             <label htmlFor='reverseOrder' className='cursor-pointer'>
-              {currSort.reverse ? <ArrowUpIcon className='h-5 w-5' /> : <ArrowDownIcon className='h-5 w-5' />}
+              {currSort.reverse ? <ArrowUpIcon className='h-4 w-4 md:h-5 md:w-5' /> : <ArrowDownIcon className='h-4 w-4 md:h-5 md:w-5' />}
             </label>
           </div>
         </form>
       </div>
 
       <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto customScrollbar md:h-[60vh] my-4 mx-auto'>
-        {imgLoading &&
-          list?.entries.map((l, i) => {
-            const ind = calcIndex(i, startIndex, list.entries.length, currSort.reverse);
-            return (
-              <div key={l.entryId} className='m-1 text-center'>
-                <button
-                  type='button'
-                  onClick={() => {
-                    setStartIndex(ind);
-                  }}>
-                  <img src={list.entries[ind].posterUrl} alt={list.entries[ind].name} />
-                </button>
-              </div>
-            );
-          })}
-        {!imgLoading &&
-          Array.from({ length: list?.entries.length ?? 10 }).map((_, i) => {
-            return (
-              <div key={i} className='m-1 text-center max-h-56 max-w-36 aspect-[2/3] '>
-                <div className=' w-full h-full  bg-gray-500 bg-opacity-20 animate-pulse'> </div>
-              </div>
-            );
-          })}
+        {list?.entries.map((l, i) => {
+          const ind = calcIndex(i, startIndex, list.entries.length, currSort.reverse);
+          return (
+            <div key={l.entryId} className='m-1 text-center'>
+              <button
+                type='button'
+                onClick={() => {
+                  setStartIndex(ind);
+                }}>
+                <img src={list.entries[ind].posterUrl} alt={list.entries[ind].name} loading={ind > 5 ? 'lazy' : 'eager'} />
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <div className='bg-gradient-to-r from-blue-600 via-teal-500 to-lime-500 h-0.5 w-full' />
