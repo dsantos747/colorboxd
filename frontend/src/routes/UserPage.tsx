@@ -13,6 +13,7 @@ function UserPage() {
   const { list } = useContext(ListContext) as ListContextType;
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [loadingIndex, setLoadingIndex] = useState<number>(0);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,12 +22,11 @@ function UserPage() {
   const homeUrl = process.env.REACT_APP_BASE_URL ?? 'https://colorboxd.com/';
 
   useEffect(() => {
-    const handleTokenStatus = async () => {
-      if (!userToken) {
-        await handleUserToken();
-      } else if (authCode) {
-        handleAuthCode();
-      }
+    const handleAuthCode = () => {
+      const { pathname, search } = location;
+      const updatedQueryParams = new URLSearchParams(search);
+      updatedQueryParams.delete('code');
+      navigate(`${pathname}?${updatedQueryParams.toString()}`);
     };
 
     const handleUserToken = async () => {
@@ -46,17 +46,22 @@ function UserPage() {
       }
     };
 
-    const handleAuthCode = () => {
-      const { pathname, search } = location;
-      const updatedQueryParams = new URLSearchParams(search);
-      updatedQueryParams.delete('code');
-      navigate(`${pathname}?${updatedQueryParams.toString()}`);
+    const handleTokenStatus = async () => {
+      if (!userToken) {
+        await handleUserToken();
+      } else if (authCode) {
+        handleAuthCode();
+      }
     };
 
     handleTokenStatus().catch((e) => {
       console.error('Error handling user authorisation:', e);
     });
   }, [authCode, userToken, setUserToken, homeUrl, location, navigate]);
+
+  useEffect(() => {
+    setLoadingIndex(0);
+  }, [list, loading]);
 
   return (
     userToken && (
@@ -67,7 +72,13 @@ function UserPage() {
             {!error && (
               <>
                 <div className='flex-grow-0'>{<ListMenu setError={setError} loading={loading} setLoading={setLoading} />}</div>
-                <div className='grow'>{list ? <ListPreview setError={setError} /> : <NoList loading={loading} />}</div>
+                <div className='grow'>
+                  {list ? (
+                    <ListPreview setError={setError} />
+                  ) : (
+                    <NoList loading={loading} loadingIndex={loadingIndex} setLoadingIndex={setLoadingIndex} />
+                  )}
+                </div>
               </>
             )}
           </div>
