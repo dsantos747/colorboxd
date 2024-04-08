@@ -9,12 +9,14 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"time"
 
 	// Accepted image formats in loadImage
 	_ "image/jpeg"
 	_ "image/png"
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
+	"github.com/disintegration/imaging"
 	"github.com/joho/godotenv"
 	"github.com/lucasb-eyer/go-colorful"
 )
@@ -55,11 +57,13 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	start := time.Now()
 	entriesWithImageInfo, err := processListImages(listEntries)
 	if err != nil {
 		ReturnError(w, fmt.Errorf("failed to process posters for list entries: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
+	fmt.Println("Process list images took: ", time.Since(start))
 
 	entriesWithRanking, err := assignListRankings(entriesWithImageInfo)
 	if err != nil {
@@ -138,41 +142,26 @@ func getListEntries(token, id string) (*[]Entry, error) {
 
 func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 	var entrySlice []Entry
-	var images []Image
 	n := len(*listEntries)
 
 	var wg sync.WaitGroup
 	imageChan := make(chan Image, n)
 	colorChan := make(chan Entry, n)
 	errChan := make(chan error, n)
+	workerCount := 200 // Consider adjusting this based on list size; ask letterboxd team about rate limiting on their servers
+
+	for i := 0; i < workerCount; i++ {
+		go worker(imageChan, colorChan, &wg, errChan)
+	}
 
 	for _, entry := range *listEntries {
 		wg.Add(1)
-		go concurrentLoadImage(entry, &wg, imageChan, errChan)
+		imageChan <- Image{info: entry}
 	}
 
 	go func() {
 		wg.Wait()
 		close(imageChan)
-	}()
-
-	for img := range imageChan {
-		images = append(images, img)
-	}
-
-	select {
-	case err := <-errChan:
-		return nil, err
-	default:
-	}
-
-	for i := 0; i < n; i++ {
-		wg.Add(1)
-		go concurrentGetImageInfo(images[i], &wg, colorChan, errChan)
-	}
-
-	go func() {
-		wg.Wait()
 		close(colorChan)
 	}()
 
@@ -183,75 +172,49 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 	return &entrySlice, nil
 }
 
-func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
-	for i, e := range *listEntries {
-		(*listEntries)[i].SortVals.Hue = AlgoHue(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.Lum = AlgoLuminosity(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.BrightDomHue = AlgoBrightDominantHue(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.InverseStep_8 = AlgoInverseStep(e.ImageInfo.Colors, 8)
-		(*listEntries)[i].SortVals.InverseStep_12 = AlgoInverseStep(e.ImageInfo.Colors, 12)
-		(*listEntries)[i].SortVals.InverseStep2_8 = AlgoInverseStepV2(e.ImageInfo.Colors, 8)
-		(*listEntries)[i].SortVals.InverseStep2_12 = AlgoInverseStepV2(e.ImageInfo.Colors, 12)
-		(*listEntries)[i].SortVals.BRBW1 = AlgoBRBW1(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.BRBW2 = AlgoBRBW2(e.ImageInfo.Colors)
+// This worker (pool size limited by workerCount) listens on imageChan, downloads the image and
+// extracts the colour information, then returns the populated Entry to colorChan
+func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, errChan chan<- error) {
+	for image := range imageChan {
+		// Fetch image and process
+		img, err := loadImage(image.info.ImageInfo.Path)
+		if err != nil {
+			errChan <- fmt.Errorf("error loading image %s: %v", image.info.ImageInfo.Path, err)
+			wg.Done()
+			continue
+		}
+
+		image.img = img
+
+		entry, err := getImageInfo(image.info, image.img)
+		if err != nil {
+			errChan <- fmt.Errorf("error getting image color info for poster for %s: %v", image.info.Name, err)
+			wg.Done()
+			continue
+		}
+
+		colorChan <- *entry
+		wg.Done()
 	}
-
-	// where error handling?
-
-	return listEntries, nil
 }
 
 func loadImage(path string) (image.Image, error) {
 	var err error = nil
 
-	response, err := http.Get(path)
+	response, err := MakeHTTPRequest("GET", path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, err
-	}
 
 	img, _, err := image.Decode(response.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	return img, nil
-}
+	smallImg := imaging.Resize(img, 80, 0, imaging.NearestNeighbor)
 
-func concurrentLoadImage(entry Entry, wg *sync.WaitGroup, imageChan chan<- Image, errChan chan<- error) {
-	defer wg.Done()
-
-	img, err := loadImage(entry.ImageInfo.Path)
-	if err != nil {
-		errChan <- fmt.Errorf("error loading image %s: %v", entry.ImageInfo.Path, err)
-		return
-	}
-
-	image := Image{img: img, info: entry}
-
-	imageChan <- image
-}
-
-func getDominantColors(k, method int, img image.Image) (*[]prominentcolor.ColorItem, error) {
-	resizeSize := uint(prominentcolor.DefaultSize)
-	var bgmasks []prominentcolor.ColorBackgroundMask // No mask
-	// bgmasks := prominentcolor.GetDefaultMasks() // Default masks (black,white or green backgrounds)
-
-	res, err := prominentcolor.KmeansWithAll(k, img, method, resizeSize, bgmasks)
-	if err != nil {
-		return nil, err
-	}
-
-	// Limit to top 3 colors - Increasing this limit may cause "a lotta damage"
-	if len(res) > 3 {
-		res = res[0:2]
-	}
-
-	return &res, nil
+	return smallImg, nil
 }
 
 func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
@@ -279,14 +242,39 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	return &entry, nil
 }
 
-func concurrentGetImageInfo(image Image, wg *sync.WaitGroup, colorChan chan<- Entry, errChan chan<- error) {
-	defer wg.Done()
+func getDominantColors(k, method int, img image.Image) (*[]prominentcolor.ColorItem, error) {
+	resizeSize := uint(1000) // larger to prevent re-resizing (we've already resized)
+	// resizeSize := uint(prominentcolor.DefaultSize)
 
-	imgColorInfo, err := getImageInfo(image.info, image.img)
+	var bgmasks []prominentcolor.ColorBackgroundMask // No mask
+
+	res, err := prominentcolor.KmeansWithAll(k, img, method, resizeSize, bgmasks)
 	if err != nil {
-		errChan <- fmt.Errorf("error getting image color info for poster for %s: %v", image.info.Name, err)
-		return
+		return nil, err
 	}
 
-	colorChan <- *imgColorInfo
+	// Limit to top 3 colors - Increasing this limit may cause "a lotta damage"
+	if len(res) > 3 {
+		res = res[0:2]
+	}
+
+	return &res, nil
+}
+
+func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
+	for i, e := range *listEntries {
+		(*listEntries)[i].SortVals.Hue = AlgoHue(e.ImageInfo.Colors)
+		(*listEntries)[i].SortVals.Lum = AlgoLuminosity(e.ImageInfo.Colors)
+		(*listEntries)[i].SortVals.BrightDomHue = AlgoBrightDominantHue(e.ImageInfo.Colors)
+		(*listEntries)[i].SortVals.InverseStep_8 = AlgoInverseStep(e.ImageInfo.Colors, 8)
+		(*listEntries)[i].SortVals.InverseStep_12 = AlgoInverseStep(e.ImageInfo.Colors, 12)
+		(*listEntries)[i].SortVals.InverseStep2_8 = AlgoInverseStepV2(e.ImageInfo.Colors, 8)
+		(*listEntries)[i].SortVals.InverseStep2_12 = AlgoInverseStepV2(e.ImageInfo.Colors, 12)
+		(*listEntries)[i].SortVals.BRBW1 = AlgoBRBW1(e.ImageInfo.Colors)
+		(*listEntries)[i].SortVals.BRBW2 = AlgoBRBW2(e.ImageInfo.Colors)
+	}
+
+	// where error handling?
+
+	return listEntries, nil
 }

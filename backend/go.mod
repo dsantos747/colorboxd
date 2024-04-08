@@ -5,6 +5,7 @@ go 1.22.0
 require (
 	github.com/EdlinOrg/prominentcolor v1.0.0
 	github.com/GoogleCloudPlatform/functions-framework-go v1.8.0
+	github.com/disintegration/imaging v1.6.2
 	github.com/joho/godotenv v1.5.1
 	github.com/lucasb-eyer/go-colorful v1.2.0
 )
@@ -22,4 +23,5 @@ require (
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
+	golang.org/x/image v0.0.0-20220302094943-723b81ca9867 // indirect
 )
