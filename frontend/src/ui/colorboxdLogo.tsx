@@ -1,15 +1,15 @@
 const ColorboxdLogo = () => {
   return (
     <div className='font-mono h-min'>
-      <span className='text-pink-500'>c</span>
-      <span className='text-rose-500'>o</span>
-      <span className='text-red-500'>l</span>
-      <span className='text-orange-600'>o</span>
-      <span className='text-amber-600'>r</span>
-      <span className='text-yellow-600'>b</span>
-      <span className='text-lime-600'>o</span>
-      <span className='text-green-600'>x</span>
-      <span className='text-emerald-600'>d</span>
+      <span className='text-cb1'>c</span>
+      <span className='text-cb2'>o</span>
+      <span className='text-cb3'>l</span>
+      <span className='text-cb4'>o</span>
+      <span className='text-cb5'>r</span>
+      <span className='text-cb6'>b</span>
+      <span className='text-cb7'>o</span>
+      <span className='text-cb8'>x</span>
+      <span className='text-cb9'>d</span>
     </div>
   );
 };
