@@ -51,13 +51,12 @@ interface ImageInfo {
 export const sorts = [
   { id: 'hue', name: 'Hue' },
   { id: 'lum', name: 'Luminosity' },
-  { id: 'brightDomHue', name: 'Bright Dominant Hue' },
   { id: 'inverseStep_8', name: 'Inverse Step (8)' },
   { id: 'inverseStep_12', name: 'Inverse Step (12)' },
   { id: 'inverseStep2_8', name: 'Inverse Step v2 (8)' },
   { id: 'inverseStep2_12', name: 'Inverse Step v2 (12)' },
-  { id: 'BRBW1', name: 'BRBW1' },
-  { id: 'BRBW2', name: 'BRBW2' },
+  { id: 'BRBW1', name: 'BRBW 1' },
+  { id: 'BRBW2', name: 'BRBW 2' },
 ] as const;
 
 type SortTypes = (typeof sorts)[number];

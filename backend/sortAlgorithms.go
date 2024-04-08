@@ -116,7 +116,7 @@ func AlgoBRBW1(colors []Color) int {
 	order = math.Pow(100, 2)
 	for i := 1; i < len(colors); i++ {
 		if checkVividness(colors[i].rgb) >= 0.01 {
-			score += int(order - ((colors[i].h / 360) * order))
+			score += int((colors[i].h / 360) * order)
 			return score
 		}
 	}
@@ -153,7 +153,7 @@ func AlgoBRBW2(colors []Color) int {
 	order = math.Pow(100, 2)
 	for i := 1; i < len(colors); i++ {
 		if checkVividness(colors[i].rgb) >= 0.01 {
-			score += int(order - ((colors[i].h / 360) * order))
+			score += int((colors[i].h / 360) * order)
 			return score
 		}
 	}

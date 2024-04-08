@@ -9,7 +9,6 @@ import (
 	"os"
 	"slices"
 	"sync"
-	"time"
 
 	// Accepted image formats in loadImage
 	_ "image/jpeg"
@@ -21,6 +20,7 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
+// Endpoint for determining the sorting of a list, given a list id
 func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	var err error
 
@@ -57,13 +57,13 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	start := time.Now()
+	// start := time.Now()
 	entriesWithImageInfo, err := processListImages(listEntries)
 	if err != nil {
 		ReturnError(w, fmt.Errorf("failed to process posters for list entries: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("Process list images took: ", time.Since(start))
+	// fmt.Println("Process list images took: ", time.Since(start))
 
 	entriesWithRanking, err := assignListRankings(entriesWithImageInfo)
 	if err != nil {
@@ -84,6 +84,7 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// For a given list id, returns a slice of each entry in the list
 func getListEntries(token, id string) (*[]Entry, error) {
 	nextCursor := "start=0"
 	method := "GET"
@@ -140,6 +141,8 @@ func getListEntries(token, id string) (*[]Entry, error) {
 	return &entries, nil
 }
 
+// For a slice of entries, this creates some goroutines which download the poster and extract colour
+// information for each film. workerCount can be used to adjust the amount of goroutines.
 func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 	var entrySlice []Entry
 	n := len(*listEntries)
@@ -198,6 +201,7 @@ func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, 
 	}
 }
 
+// Download and resize an image, given a source url
 func loadImage(path string) (image.Image, error) {
 	var err error = nil
 
@@ -217,6 +221,7 @@ func loadImage(path string) (image.Image, error) {
 	return smallImg, nil
 }
 
+// Populate an image with information about its dominant colours
 func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	var method int = prominentcolor.ArgumentNoCropping
 
@@ -242,6 +247,7 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	return &entry, nil
 }
 
+// Run the k-means method to extract the top 3 dominant colours from a poster
 func getDominantColors(k, method int, img image.Image) (*[]prominentcolor.ColorItem, error) {
 	resizeSize := uint(1000) // larger to prevent re-resizing (we've already resized)
 	// resizeSize := uint(prominentcolor.DefaultSize)
@@ -261,11 +267,11 @@ func getDominantColors(k, method int, img image.Image) (*[]prominentcolor.ColorI
 	return &res, nil
 }
 
+// This function calculates each poster's ranking according to each sort method (see sortAlgorithms file)
 func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 	for i, e := range *listEntries {
 		(*listEntries)[i].SortVals.Hue = AlgoHue(e.ImageInfo.Colors)
 		(*listEntries)[i].SortVals.Lum = AlgoLuminosity(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.BrightDomHue = AlgoBrightDominantHue(e.ImageInfo.Colors)
 		(*listEntries)[i].SortVals.InverseStep_8 = AlgoInverseStep(e.ImageInfo.Colors, 8)
 		(*listEntries)[i].SortVals.InverseStep_12 = AlgoInverseStep(e.ImageInfo.Colors, 12)
 		(*listEntries)[i].SortVals.InverseStep2_8 = AlgoInverseStepV2(e.ImageInfo.Colors, 8)
