@@ -95,7 +95,7 @@ export default function ListPreview({ setError }: Props) {
     <div className='mx-auto max-w-6xl'>
       <div className='flex flex-wrap justify-between text-sm md:text-base gap-x-4'>
         <p className='my-auto'>Click a poster to make it the start of the list.</p>
-        <form className='flex justify-end flex-wrap align-middle items-center select-none gap-2 ml-auto'>
+        <form className='flex justify-end flex-wrap align-middle items-center select-none gap-4 ml-auto'>
           <div className='mx-auto'>
             <input type='checkbox' id='showOriginal' className='hidden peer' checked={!currSort.visible} onChange={handleShowOriginal} />
             <label
@@ -127,7 +127,7 @@ export default function ListPreview({ setError }: Props) {
         </form>
       </div>
 
-      <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto customScrollbar md:h-[60vh] my-4 mx-auto'>
+      <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto customScrollbar max-h-[120vh] md:h-[60vh] my-4 mx-auto'>
         {list?.entries.map((l, i) => {
           const ind = calcIndex(i, startIndex, list.entries.length, currSort.reverse);
           return (

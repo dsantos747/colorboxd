@@ -7,6 +7,7 @@ import ListMenu from '../ui/listMenu';
 import ListPreview from '../ui/listPreview';
 import Error from '../errorDiv';
 import NoList from '../ui/noList';
+import HelpModal from '../ui/helpModal';
 
 function UserPage() {
   const { userToken, setUserToken } = useContext(UserTokenContext) as UserTokenContextType;
@@ -71,7 +72,10 @@ function UserPage() {
             {error && <Error message={error.toString()} />}
             {!error && (
               <>
-                <div className='flex-grow-0'>{<ListMenu setError={setError} loading={loading} setLoading={setLoading} />}</div>
+                <div className='flex-grow-0 flex flex-col gap-4 md:gap-8 items-center'>
+                  <ListMenu setError={setError} loading={loading} setLoading={setLoading} />
+                  <HelpModal />
+                </div>
                 <div className='grow'>
                   {list ? (
                     <ListPreview setError={setError} />

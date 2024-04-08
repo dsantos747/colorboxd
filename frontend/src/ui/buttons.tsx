@@ -11,14 +11,10 @@ const sadButtonStyle =
 
 const LoginButton = () => {
   const authorisationUrl = process.env.REACT_APP_LBOXD_AUTH_URL ?? 'https://colorboxd.com/';
-  const { userToken, setUserToken } = useContext(UserTokenContext) as UserTokenContextType;
-
+  const { userToken } = useContext(UserTokenContext) as UserTokenContextType;
   const cookieUserToken = Cookies.get('userToken');
-  if (cookieUserToken) {
-    setUserToken(JSON.parse(cookieUserToken));
-  }
 
-  if (userToken) {
+  if (userToken || cookieUserToken) {
     return (
       <Link to={'/user'} className={`${happyButtonStyle}`}>
         Get Started
