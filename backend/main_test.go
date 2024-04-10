@@ -5,11 +5,11 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/launcher"
-	"github.com/go-rod/rod/lib/proto"
 	"github.com/joho/godotenv"
 )
 
@@ -51,7 +51,7 @@ func TestGetRedImageInfo(t *testing.T) {
 	}
 }
 
-func TestGetAccessToken(t *testing.T) {
+func TestGetAccessTokenAndUser(t *testing.T) {
 	authCode, err := getAuthCode()
 	if err != nil {
 		t.Errorf("failed to generate auth code: %v", err)
@@ -71,7 +71,9 @@ func TestGetAccessToken(t *testing.T) {
 		t.Errorf("could not retrieve member ID: %v", err)
 	}
 
-	fmt.Println(member.DisplayName)
+	if member.ID != "67W7X" {
+		t.Errorf("Somehow retrieved the incorrect member id: %v", member.ID)
+	}
 }
 
 // Helper function to log in to letterboxd account and return an auth code.
@@ -83,39 +85,32 @@ func getAuthCode() (*string, error) {
 		return nil, err
 	}
 
+	// Setup Browser
 	launcher := launcher.New()
-	launcher.Leakless(false)
+	launcher.Leakless(false) // Required since antivirus prevents test run if leakless binary is present
 	u := launcher.MustLaunch()
-
 	browser := rod.New().ControlURL(u).MustConnect()
 	defer browser.MustClose()
 
-	authCodeChan := make(chan string)
-
-	go func() {
-		_ = browser.EachEvent(func(e *proto.NetworkResponseReceived) {
-			if strings.Contains(e.Response.URL, "https://colorboxd.com/user?code=") {
-				// Parse the URL to extract the auth code
-				parts := strings.Split(e.Response.URL, "=")
-				if len(parts) > 1 {
-					authCode := parts[1]
-					fmt.Println("Received auth code:", authCode)
-					authCodeChan <- authCode
-				}
-			}
-		})
-	}()
-
-	// Create a new page
+	// Navigate and login
 	page := browser.MustPage(os.Getenv("LBOXD_AUTH_URL")).MustWaitStable()
-
-	// Enter login details
 	page.MustElement("#field-username").MustInput(os.Getenv("MY_LBOXD_USER"))
 	page.MustElement("#field-password").MustInput(os.Getenv("MY_LBOXD_PASS")).MustType(input.Enter)
 
-	page.MustWaitNavigation()
+	// Wait for the redirect
+	redirectURL := ""
+	for !strings.Contains(redirectURL, "https://colorboxd.com/user?code=") {
+		// Get the current URL
+		currentURL := page.MustInfo().URL
+		if strings.Contains(currentURL, "https://colorboxd.com/user?code=") {
+			redirectURL = currentURL
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
 
-	authCode := <-authCodeChan
+	codeIndex := 32 // This is used to remove everything in the url, prior to the code
+	authCode := redirectURL[codeIndex:]
 
 	browser.MustClose()
 	launcher.Kill()
