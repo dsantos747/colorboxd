@@ -4,8 +4,22 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
+
+	"github.com/joho/godotenv"
 )
+
+func LoadEnv() error {
+	if os.Getenv("ENVIRONMENT") == "" {
+		err := godotenv.Load()
+		if err != nil {
+			fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+			return err
+		}
+	}
+	return nil
+}
 
 func ReturnError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "text/plain")

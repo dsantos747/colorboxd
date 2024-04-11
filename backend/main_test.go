@@ -10,7 +10,6 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/launcher"
-	"github.com/joho/godotenv"
 )
 
 var testToken string
@@ -82,7 +81,7 @@ func TestGetAccessTokenAndUser(t *testing.T) {
 // Helper function to log in to letterboxd account and return an auth code.
 // This works because I have already authorised colorboxd for my account.
 func getAuthCode() (*string, error) {
-	err := godotenv.Load()
+	err := LoadEnv()
 	if err != nil {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
 		return nil, err
@@ -94,6 +93,8 @@ func getAuthCode() (*string, error) {
 	u := launcher.MustLaunch()
 	browser := rod.New().ControlURL(u).MustConnect()
 	defer browser.MustClose()
+
+	fmt.Println(os.Getenv("LBOXD_AUTH_URL"))
 
 	// Navigate and login
 	page := browser.MustPage(os.Getenv("LBOXD_AUTH_URL")).MustWaitStable()
