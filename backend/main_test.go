@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
+	"github.com/go-rod/rod/lib/launcher"
 )
 
 var testToken string
@@ -56,6 +57,8 @@ func TestGetAccessTokenAndUser(t *testing.T) {
 		t.Errorf("failed to generate auth code: %v", err)
 	}
 
+	fmt.Println("the auth code is:", *authCode)
+
 	accessTokenResponse, err := getAccessToken(*authCode)
 	if err != nil {
 		t.Errorf("could not create valid access token for provided auth code: %v", err)
@@ -87,13 +90,10 @@ func getAuthCode() (*string, error) {
 	}
 
 	// Setup Browser
-	// launcher := launcher.New()
-	// launcher.Leakless(false) // Required since antivirus prevents test run if leakless binary is present
-	// u := launcher.MustLaunch()
-	// browser := rod.New().ControlURL(u).MustConnect()
-	// defer browser.MustClose()
-
-	browser := rod.New().MustConnect()
+	launcher := launcher.New()
+	launcher.Leakless(false) // Required since antivirus prevents test run if leakless binary is present
+	u := launcher.MustLaunch()
+	browser := rod.New().ControlURL(u).MustConnect()
 	defer browser.MustClose()
 
 	// Navigate and login
@@ -117,7 +117,7 @@ func getAuthCode() (*string, error) {
 	authCode := redirectURL[codeIndex:]
 
 	browser.MustClose()
-	// launcher.Kill()
+	launcher.Kill()
 
 	return &authCode, nil
 }
