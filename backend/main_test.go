@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
-	"github.com/go-rod/rod/lib/launcher"
 )
 
 var testToken string
@@ -87,13 +86,14 @@ func getAuthCode() (*string, error) {
 		return nil, err
 	}
 
-	fmt.Println(os.Getenv("LBOXD_AUTH_URL"))
-
 	// Setup Browser
-	launcher := launcher.New()
-	launcher.Leakless(false) // Required since antivirus prevents test run if leakless binary is present
-	u := launcher.MustLaunch()
-	browser := rod.New().ControlURL(u).MustConnect()
+	// launcher := launcher.New()
+	// launcher.Leakless(false) // Required since antivirus prevents test run if leakless binary is present
+	// u := launcher.MustLaunch()
+	// browser := rod.New().ControlURL(u).MustConnect()
+	// defer browser.MustClose()
+
+	browser := rod.New().MustConnect()
 	defer browser.MustClose()
 
 	// Navigate and login
@@ -116,10 +116,8 @@ func getAuthCode() (*string, error) {
 	codeIndex := 32 // This is used to remove everything in the url, prior to the code
 	authCode := redirectURL[codeIndex:]
 
-	fmt.Println(authCode)
-
 	browser.MustClose()
-	launcher.Kill()
+	// launcher.Kill()
 
 	return &authCode, nil
 }
