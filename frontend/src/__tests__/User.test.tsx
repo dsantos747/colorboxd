@@ -46,7 +46,6 @@ const testList: List = {
       sorts: {
         'hue': 0,
         'lum': 0,
-        'brightDomHue': 0,
         'inverseStep_8': 0,
         'inverseStep_12': 0,
         'inverseStep2_8': 0,
@@ -64,7 +63,7 @@ const mockUserPage = (mockToken: UserToken | null, mockList: List | null) => {
       <ListSummaryContext.Provider value={{ listSummary: testListSummary, setListSummary: jest.fn() }}>
         <ListContext.Provider value={{ list: mockList, setList: jest.fn() }}>
           <MemoryRouter>
-            <UserPage />
+            <UserPage withModal={false} />
           </MemoryRouter>
         </ListContext.Provider>
       </ListSummaryContext.Provider>

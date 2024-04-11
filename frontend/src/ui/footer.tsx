@@ -16,7 +16,7 @@ export default function Footer() {
         <a href='https://ko-fi.com/danielsantosdev' className='underline'>
           donating
         </a>{' '}
-        to help pay my server costs.
+        to help pay my running costs.
       </div>
     </div>
   );

@@ -9,7 +9,11 @@ import Error from '../errorDiv';
 import NoList from '../ui/noList';
 import HelpModal from '../ui/helpModal';
 
-function UserPage() {
+type Props = {
+  readonly withModal?: boolean; // Temporary workaround to stop tests failing, see modal component for details
+};
+
+function UserPage({ withModal = true }: Props) {
   const { userToken, setUserToken } = useContext(UserTokenContext) as UserTokenContextType;
   const { list } = useContext(ListContext) as ListContextType;
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +78,7 @@ function UserPage() {
               <>
                 <div className='flex-grow-0 flex flex-col gap-4 md:gap-8 items-center'>
                   <ListMenu setError={setError} loading={loading} setLoading={setLoading} />
-                  <HelpModal />
+                  {withModal && <HelpModal />}
                 </div>
                 <div className='grow'>
                   {list ? (

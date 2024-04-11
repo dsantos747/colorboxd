@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 interface Props {
-  isOpen: boolean;
-  hasCloseBtn?: boolean;
-  onClose?: () => void;
-  children: React.ReactNode;
+  readonly isOpen: boolean;
+  readonly hasCloseBtn?: boolean;
+  readonly onClose?: () => void;
+  readonly children: React.ReactNode;
 }
 
 export default function Modal({ isOpen, hasCloseBtn = true, onClose, children }: Props) {
@@ -36,7 +36,7 @@ export default function Modal({ isOpen, hasCloseBtn = true, onClose, children }:
       if (isModalOpen) {
         modalElement.showModal();
       } else {
-        modalElement.close();
+        modalElement.close(); // This is causing tests to fail, see https://github.com/jsdom/jsdom/issues/3294
       }
     }
   }, [isModalOpen]);
