@@ -57,6 +57,16 @@ jobs:
           cd backend
           go mod tidy
 
+      - name: Set Environment Variables
+        env:
+          MY_LBOXD_USER: ${{ secrets.MY_LBOXD_USER }}
+          MY_LBOXD_PASS: ${{ secrets.MY_LBOXD_PASS }}
+          LBOXD_AUTH_URL: ${{ secrets.LBOXD_AUTH_URL }}
+        run: |
+          echo "MY_LBOXD_USER=${MY_LBOXD_USER}" >> $GITHUB_ENV
+          echo "MY_LBOXD_PASS=${MY_LBOXD_PASS}" >> $GITHUB_ENV
+          echo "LBOXD_AUTH_URL=${LBOXD_AUTH_URL}" >> $GITHUB_ENV
+
       - name: Run Backend Tests
         run: |
           cd backend
