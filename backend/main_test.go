@@ -87,14 +87,14 @@ func getAuthCode() (*string, error) {
 		return nil, err
 	}
 
+	fmt.Println(os.Getenv("LBOXD_AUTH_URL"))
+
 	// Setup Browser
 	launcher := launcher.New()
 	launcher.Leakless(false) // Required since antivirus prevents test run if leakless binary is present
 	u := launcher.MustLaunch()
 	browser := rod.New().ControlURL(u).MustConnect()
 	defer browser.MustClose()
-
-	fmt.Println(os.Getenv("LBOXD_AUTH_URL"))
 
 	// Navigate and login
 	page := browser.MustPage(os.Getenv("LBOXD_AUTH_URL")).MustWaitStable()
@@ -115,6 +115,8 @@ func getAuthCode() (*string, error) {
 
 	codeIndex := 32 // This is used to remove everything in the url, prior to the code
 	authCode := redirectURL[codeIndex:]
+
+	fmt.Println(authCode)
 
 	browser.MustClose()
 	launcher.Kill()
