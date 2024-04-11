@@ -13,8 +13,9 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Letterboxd member id: 67W7X
-// Letterboxd Test List id: tqtA2
+var testToken string
+var testUserId string = "67W7X"
+var testListId string = "tqtA2"
 
 func TestLoadImage(t *testing.T) {
 	_, err := loadImage("https://www.colorhexa.com/ff0000.png")
@@ -71,9 +72,11 @@ func TestGetAccessTokenAndUser(t *testing.T) {
 		t.Errorf("could not retrieve member ID: %v", err)
 	}
 
-	if member.ID != "67W7X" {
+	if member.ID != testUserId {
 		t.Errorf("Somehow retrieved the incorrect member id: %v", member.ID)
 	}
+
+	testToken = accessTokenResponse.AccessToken
 }
 
 // Helper function to log in to letterboxd account and return an auth code.
@@ -116,6 +119,20 @@ func getAuthCode() (*string, error) {
 	launcher.Kill()
 
 	return &authCode, nil
+}
+
+func TestGetLists(t *testing.T) {
+	userLists, err := getUserLists(testToken, testUserId)
+	if err != nil {
+		t.Errorf("could not retrieve lists from Letterboxd API: %v", err)
+	}
+
+	for _, l := range *userLists {
+		if l.ID == testListId {
+			return
+		}
+	}
+	t.Errorf("could not find test list ID in returned lists; expected LID: %v", testListId)
 }
 
 // getUserLists test
