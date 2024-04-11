@@ -16,7 +16,6 @@ import (
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/disintegration/imaging"
-	"github.com/joho/godotenv"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -24,8 +23,8 @@ import (
 func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// Read env variables - local development only - comment out for production
-	err = godotenv.Load()
+	// Read env variables
+	err = LoadEnv()
 	if err != nil {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
 		return

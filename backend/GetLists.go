@@ -5,15 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// Read env variables - local development only - comment out for production
-	err = godotenv.Load()
+	// Read env variables
+	err = LoadEnv()
 	if err != nil {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
 		return

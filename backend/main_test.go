@@ -57,8 +57,6 @@ func TestGetAccessTokenAndUser(t *testing.T) {
 		t.Errorf("failed to generate auth code: %v", err)
 	}
 
-	fmt.Println("the auth code is:", *authCode)
-
 	accessTokenResponse, err := getAccessToken(*authCode)
 	if err != nil {
 		t.Errorf("could not create valid access token for provided auth code: %v", err)
