@@ -52,6 +52,12 @@ func TestGetRedImageInfo(t *testing.T) {
 }
 
 func TestGetAccessTokenAndUser(t *testing.T) {
+	err := LoadEnv()
+	if err != nil {
+		t.Errorf("Could not load environment variables from .env file: %v\n", err)
+		return
+	}
+
 	authCode, err := getAuthCode()
 	if err != nil {
 		t.Errorf("failed to generate auth code: %v", err)
@@ -81,12 +87,6 @@ func TestGetAccessTokenAndUser(t *testing.T) {
 // Helper function to log in to letterboxd account and return an auth code.
 // This works because I have already authorised colorboxd for my account.
 func getAuthCode() (*string, error) {
-	err := LoadEnv()
-	if err != nil {
-		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-		return nil, err
-	}
-
 	// Setup Browser
 	launcher := launcher.New()
 	launcher.Leakless(false) // Required since antivirus prevents test run if leakless binary is present
@@ -101,12 +101,15 @@ func getAuthCode() (*string, error) {
 
 	// Wait for the redirect
 	redirectURL := ""
+	tStart := time.Now()
 	for !strings.Contains(redirectURL, "https://colorboxd.com/user?code=") {
-		// Get the current URL
 		currentURL := page.MustInfo().URL
 		if strings.Contains(currentURL, "https://colorboxd.com/user?code=") {
 			redirectURL = currentURL
 			break
+		}
+		if time.Since(tStart) > 10*time.Second {
+			return nil, fmt.Errorf("Timed out waiting for redirect")
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
