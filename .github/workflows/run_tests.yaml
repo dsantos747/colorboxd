@@ -64,12 +64,18 @@ jobs:
           MY_LBOXD_PASS: ${{ secrets.MY_LBOXD_PASS }}
           LBOXD_AUTH_URL: ${{ secrets.LBOXD_AUTH_URL }}
           LBOXD_BASEURL: ${{ secrets.LBOXD_BASEURL }}
+          LBOXD_REDIRECT_URL: ${{ secrets.LBOXD_REDIRECT_URL }}
+          LBOXD_KEY: ${{ secrets.LBOXD_KEY }}
+          LBOXD_SECRET: ${{ secrets.LBOXD_SECRET }}
         run: |
           echo "ENVIRONMENT=${ENVIRONMENT}" >> $GITHUB_ENV
           echo "MY_LBOXD_USER=${MY_LBOXD_USER}" >> $GITHUB_ENV
           echo "MY_LBOXD_PASS=${MY_LBOXD_PASS}" >> $GITHUB_ENV
           echo "LBOXD_AUTH_URL=${LBOXD_AUTH_URL}" >> $GITHUB_ENV
           echo "LBOXD_BASEURL=${LBOXD_BASEURL}" >> $GITHUB_ENV
+          echo "LBOXD_REDIRECT_URL=${LBOXD_REDIRECT_URL}" >> $GITHUB_ENV
+          echo "LBOXD_KEY=${LBOXD_KEY}" >> $GITHUB_ENV
+          echo "LBOXD_SECRET=${LBOXD_SECRET}" >> $GITHUB_ENV
 
       - name: Run Backend Tests
         run: |
