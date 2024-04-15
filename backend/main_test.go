@@ -15,15 +15,16 @@ import (
 var testToken string
 var testUserId string = "67W7X"
 var testListId string = "tqtA2"
+var testListEntries *[]Entry
 
 func TestLoadImage(t *testing.T) {
 	_, err := loadImage("https://www.colorhexa.com/ff0000.png")
 	if err != nil {
 		t.Errorf("Load valid image ff0000.png shouldn't error, had error: %v\n", err)
 	}
-	_, err = loadImage("./images/test/invalid.txt")
+	_, err = loadImage("./.gitignore")
 	if err == nil {
-		t.Errorf("Expected error loading invalid.txt; no error occured")
+		t.Errorf("Expected error loading .gitignore as image; no error occurred")
 	}
 }
 
@@ -137,5 +138,29 @@ func TestGetLists(t *testing.T) {
 	t.Errorf("could not find test list ID in returned lists; expected LID: %v", testListId)
 }
 
-// getUserLists test
-// To do this, first need to generate an access token
+// Fetch the entries of the test list. If the amount of entries doesn't match
+// the expected amount, fail test.
+func TestGetListEntries(t *testing.T) {
+	var err error
+	testListEntries, err = getListEntries(testToken, testListId)
+	if err != nil {
+		t.Errorf("failed to retrieve entries from list: %v", err)
+	}
+	if len(*testListEntries) != 44 {
+		t.Errorf("retrieved list entries qty didn't match expected entries qty, expected 44, found %v", len(*testListEntries))
+	}
+}
+
+func TestProcessListImages(t *testing.T) {
+	entriesWithImageInfo, err := processListImages(testListEntries)
+	if err != nil {
+		t.Errorf("failed to process posters for list entries: %v", err)
+		return
+	}
+	for _, entry := range *entriesWithImageInfo {
+		if len(entry.ImageInfo.Colors) == 0 {
+			t.Errorf("0 colors found for poster for film: %s", entry.Name)
+			return
+		}
+	}
+}

@@ -10,6 +10,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// LoadEnv attempts to load an env var "ENVIRONMENT". If successful, no further action.
+// If not successful, load all envs with godotenv instead
 func LoadEnv() error {
 	if os.Getenv("ENVIRONMENT") == "" {
 		err := godotenv.Load()
@@ -21,6 +23,7 @@ func LoadEnv() error {
 	return nil
 }
 
+// ReturnError sends a http error back to the ResponseWriter w
 func ReturnError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "text/plain")
 	http.Error(w, message, statusCode)
