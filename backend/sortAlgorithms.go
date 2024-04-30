@@ -99,12 +99,12 @@ func AlgoBRBW1(colors []Color) int {
 
 	domCol := dominantVividColour(colors, 0.15) // Reduced vividness threshold, to reduce amount of posters in black/white zones. Consider adding a secondary lum check here
 	if domCol != nil {
-		return int(((*domCol).h / 360) * order)
+		return int(((domCol).h / 360) * order)
 	}
 
 	domCol = dominantVividColour(colors, 0.05)
 	if domCol != nil && domCol.l > 0.05 && domCol.l < 0.85 { // Lum check, to reduce amount in black/white zones
-		return int(((*domCol).h / 360) * order)
+		return int(((domCol).h / 360) * order)
 	}
 
 	if colors[0].l > 0.5 {
@@ -141,7 +141,7 @@ func AlgoBRBW2(colors []Color) int {
 
 	domCol := dominantVividColour(colors, 0.08) // Greatly reduced vividness threshold, to reduce amount of posters in black/white zones.
 	if domCol != nil {
-		return int(((*domCol).h / 360) * order)
+		return int(((domCol).h / 360) * order)
 	}
 
 	if colors[0].l > 0.5 {

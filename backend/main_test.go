@@ -151,6 +151,8 @@ func TestGetListEntries(t *testing.T) {
 	}
 }
 
+// For all images in test list, try extracting dominant colour information from posters.
+// If no dominant colours are found, something's wrong - fail test.
 func TestProcessListImages(t *testing.T) {
 	entriesWithImageInfo, err := processListImages(testListEntries)
 	if err != nil {
