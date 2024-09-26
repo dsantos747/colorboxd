@@ -1,0 +1,108 @@
+# cloud.google.com/go/functions v1.19.1
+## explicit; go 1.21
+cloud.google.com/go/functions/metadata
+# github.com/EdlinOrg/prominentcolor v1.0.0
+## explicit
+github.com/EdlinOrg/prominentcolor
+# github.com/GoogleCloudPlatform/functions-framework-go v1.9.0
+## explicit; go 1.18
+github.com/GoogleCloudPlatform/functions-framework-go/funcframework
+github.com/GoogleCloudPlatform/functions-framework-go/functions
+github.com/GoogleCloudPlatform/functions-framework-go/internal/events/pubsub
+github.com/GoogleCloudPlatform/functions-framework-go/internal/fftypes
+github.com/GoogleCloudPlatform/functions-framework-go/internal/registry
+# github.com/cloudevents/sdk-go/v2 v2.15.2
+## explicit; go 1.18
+github.com/cloudevents/sdk-go/v2
+github.com/cloudevents/sdk-go/v2/binding
+github.com/cloudevents/sdk-go/v2/binding/format
+github.com/cloudevents/sdk-go/v2/binding/spec
+github.com/cloudevents/sdk-go/v2/client
+github.com/cloudevents/sdk-go/v2/context
+github.com/cloudevents/sdk-go/v2/event
+github.com/cloudevents/sdk-go/v2/event/datacodec
+github.com/cloudevents/sdk-go/v2/event/datacodec/json
+github.com/cloudevents/sdk-go/v2/event/datacodec/text
+github.com/cloudevents/sdk-go/v2/event/datacodec/xml
+github.com/cloudevents/sdk-go/v2/protocol
+github.com/cloudevents/sdk-go/v2/protocol/http
+github.com/cloudevents/sdk-go/v2/types
+# github.com/disintegration/imaging v1.6.2
+## explicit
+github.com/disintegration/imaging
+# github.com/go-rod/rod v0.116.2
+## explicit; go 1.21
+github.com/go-rod/rod
+github.com/go-rod/rod/lib/assets
+github.com/go-rod/rod/lib/cdp
+github.com/go-rod/rod/lib/defaults
+github.com/go-rod/rod/lib/devices
+github.com/go-rod/rod/lib/input
+github.com/go-rod/rod/lib/js
+github.com/go-rod/rod/lib/launcher
+github.com/go-rod/rod/lib/launcher/flags
+github.com/go-rod/rod/lib/proto
+github.com/go-rod/rod/lib/utils
+# github.com/google/uuid v1.6.0
+## explicit
+github.com/google/uuid
+# github.com/joho/godotenv v1.5.1
+## explicit; go 1.12
+github.com/joho/godotenv
+# github.com/json-iterator/go v1.1.12
+## explicit; go 1.12
+github.com/json-iterator/go
+# github.com/lucasb-eyer/go-colorful v1.2.0
+## explicit; go 1.12
+github.com/lucasb-eyer/go-colorful
+# github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+## explicit
+github.com/modern-go/concurrent
+# github.com/modern-go/reflect2 v1.0.2
+## explicit; go 1.12
+github.com/modern-go/reflect2
+# github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
+## explicit
+github.com/nfnt/resize
+# github.com/oliamb/cutter v0.2.2
+## explicit
+github.com/oliamb/cutter
+# github.com/stretchr/testify v1.9.0
+## explicit; go 1.17
+# github.com/ysmood/fetchup v0.2.4
+## explicit; go 1.21
+github.com/ysmood/fetchup
+# github.com/ysmood/goob v0.4.0
+## explicit; go 1.15
+github.com/ysmood/goob
+# github.com/ysmood/got v0.40.0
+## explicit; go 1.21
+github.com/ysmood/got/lib/lcs
+# github.com/ysmood/gson v0.7.3
+## explicit; go 1.15
+github.com/ysmood/gson
+# github.com/ysmood/leakless v0.9.0
+## explicit; go 1.15
+github.com/ysmood/leakless
+github.com/ysmood/leakless/pkg/shared
+github.com/ysmood/leakless/pkg/utils
+# go.uber.org/multierr v1.11.0
+## explicit; go 1.19
+go.uber.org/multierr
+# go.uber.org/zap v1.27.0
+## explicit; go 1.19
+go.uber.org/zap
+go.uber.org/zap/buffer
+go.uber.org/zap/internal
+go.uber.org/zap/internal/bufferpool
+go.uber.org/zap/internal/color
+go.uber.org/zap/internal/exit
+go.uber.org/zap/internal/pool
+go.uber.org/zap/internal/stacktrace
+go.uber.org/zap/zapcore
+# golang.org/x/image v0.20.0
+## explicit; go 1.18
+golang.org/x/image/bmp
+golang.org/x/image/ccitt
+golang.org/x/image/tiff
+golang.org/x/image/tiff/lzw
