@@ -16,8 +16,11 @@ import (
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/disintegration/imaging"
+	"github.com/dsantos747/letterboxd_hue_sort/backend/redis"
 	"github.com/lucasb-eyer/go-colorful"
 )
+
+var rc redis.Redis
 
 // HTTPSortListById is the serverless function for computing the color information of each movie poster in
 // a user's Letterboxd list and consequently computing the different sort rankings.
@@ -30,6 +33,8 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
 		return
 	}
+
+	rc = redis.New(os.Getenv("REDIS_URL"))
 
 	// Set necessary headers for CORS and cache policy
 	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
@@ -179,21 +184,43 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 // extracts the colour information, then returns the populated Entry to colorChan
 func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, errChan chan<- error) {
 	for image := range imageChan {
-		// Fetch image and process
-		img, err := loadImage(image.info.ImageInfo.Path)
-		if err != nil {
-			errChan <- fmt.Errorf("error loading image %s: %v", image.info.ImageInfo.Path, err)
-			wg.Done()
-			continue
-		}
+		// Here need to first check redis cache for image info
+		var cacheHit bool
+		entry := &image.info
 
-		image.img = img
+		hexes, counts, cacheHit := rc.Get(image.info.FilmID)
 
-		entry, err := getImageInfo(image.info, image.img)
-		if err != nil {
-			errChan <- fmt.Errorf("error getting image color info for poster for %s: %v", image.info.Name, err)
-			wg.Done()
-			continue
+		if cacheHit {
+			entry.ImageInfo.Colors = parseColors(hexes, counts)
+		} else {
+			// Fetch image and process
+			img, err := loadImage(image.info.ImageInfo.Path)
+			if err != nil {
+				errChan <- fmt.Errorf("error loading image %s: %v", image.info.ImageInfo.Path, err)
+				wg.Done()
+				continue
+			}
+
+			image.img = img
+
+			entry, err = getImageInfo(image.info, image.img)
+			if err != nil {
+				errChan <- fmt.Errorf("error getting image color info for poster for %s: %v", image.info.Name, err)
+				wg.Done()
+				continue
+			}
+
+			// Set to redis
+			// todo, NEED to ensure that the key we are using is the id of the film poster - not the id of the film itself
+			// The letterboxd api has a posterPickerUrl, which is to do with the custom poster chosen in a list. Could we use this?
+			// Maybe, check if that field is empty or not when the poster is standard, that could be useful
+			// Once you have the api key back, can use that to make some postman calls and check
+			colors, counts := []string{}, []int{}
+			for _, c := range entry.ImageInfo.Colors {
+				colors = append(colors, c.hex)
+				counts = append(counts, c.count)
+			}
+			rc.Set(image.info.FilmID, colors, counts)
 		}
 
 		colorChan <- *entry
@@ -283,4 +310,17 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 	// where error handling?
 
 	return listEntries, nil
+}
+
+func parseColors(hexes []string, counts []int) []Color {
+	var colors []Color
+	for i, hex := range hexes {
+		rgb, _ := colorful.Hex(hex)
+		hue, sat, lum := rgb.Hsl()
+		_, _, val := rgb.Hsv()
+
+		colors = append(colors, Color{rgb: rgb, hex: hex, h: hue, s: sat, l: lum, v: val, count: counts[i]})
+	}
+
+	return colors
 }

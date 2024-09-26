@@ -11,6 +11,9 @@ github.com/GoogleCloudPlatform/functions-framework-go/functions
 github.com/GoogleCloudPlatform/functions-framework-go/internal/events/pubsub
 github.com/GoogleCloudPlatform/functions-framework-go/internal/fftypes
 github.com/GoogleCloudPlatform/functions-framework-go/internal/registry
+# github.com/cespare/xxhash/v2 v2.2.0
+## explicit; go 1.11
+github.com/cespare/xxhash/v2
 # github.com/cloudevents/sdk-go/v2 v2.15.2
 ## explicit; go 1.18
 github.com/cloudevents/sdk-go/v2
@@ -27,6 +30,9 @@ github.com/cloudevents/sdk-go/v2/event/datacodec/xml
 github.com/cloudevents/sdk-go/v2/protocol
 github.com/cloudevents/sdk-go/v2/protocol/http
 github.com/cloudevents/sdk-go/v2/types
+# github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
+## explicit
+github.com/dgryski/go-rendezvous
 # github.com/disintegration/imaging v1.6.2
 ## explicit
 github.com/disintegration/imaging
@@ -67,6 +73,16 @@ github.com/nfnt/resize
 # github.com/oliamb/cutter v0.2.2
 ## explicit
 github.com/oliamb/cutter
+# github.com/redis/go-redis/v9 v9.6.1
+## explicit; go 1.18
+github.com/redis/go-redis/v9
+github.com/redis/go-redis/v9/internal
+github.com/redis/go-redis/v9/internal/hashtag
+github.com/redis/go-redis/v9/internal/hscan
+github.com/redis/go-redis/v9/internal/pool
+github.com/redis/go-redis/v9/internal/proto
+github.com/redis/go-redis/v9/internal/rand
+github.com/redis/go-redis/v9/internal/util
 # github.com/stretchr/testify v1.9.0
 ## explicit; go 1.17
 # github.com/ysmood/fetchup v0.2.4
