@@ -12,6 +12,7 @@ import (
 	"strings"
 )
 
+// HTTPWriteList is the serverless function for writing the sorted list to the users letterboxd account.
 func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
 	var err error
 

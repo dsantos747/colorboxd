@@ -19,7 +19,8 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-// Endpoint for determining the sorting of a list, given a list id
+// HTTPSortListById is the serverless function for computing the color information of each movie poster in
+// a user's Letterboxd list and consequently computing the different sort rankings.
 func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	var err error
 

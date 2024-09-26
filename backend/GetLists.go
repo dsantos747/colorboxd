@@ -7,6 +7,7 @@ import (
 	"os"
 )
 
+// HTTPGetLists fetches basic metadata of a users letterboxd lists
 func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
 	var err error
 
