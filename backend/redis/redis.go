@@ -25,12 +25,9 @@ func New(url string) Redis {
 	}
 }
 
-// Gets a a value from redis given a key. If the key is stale, cacheHit is returned as false
+// Gets a value from redis given a key. If the key is stale, cacheHit is returned as false
 func (r Redis) Get(key string) ([]string, []int, bool) {
-	vals, err := r.client.LRange(context.TODO(), key, 0, -1).Result()
-	if err != nil {
-		return nil, nil, false
-	}
+	// Check key freshness
 	ts, err := r.client.Get(context.TODO(), key+"_t").Result()
 	if err != nil {
 		return nil, nil, false
@@ -40,6 +37,12 @@ func (r Redis) Get(key string) ([]string, []int, bool) {
 		return nil, nil, false
 	}
 	if time.Now().Unix()-tsInt > 30*24*3600 {
+		return nil, nil, false
+	}
+
+	// Get the value
+	vals, err := r.client.LRange(context.TODO(), key, 0, -1).Result()
+	if err != nil {
 		return nil, nil, false
 	}
 	colors, counts := r.parseRedisOut(vals)
