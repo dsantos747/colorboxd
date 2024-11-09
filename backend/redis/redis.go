@@ -9,6 +9,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const ttlDays int64 = 30
+
 type Redis struct {
 	client *redis.Client
 }
@@ -36,13 +38,13 @@ func (r Redis) Get(key string) ([]string, []int, bool) {
 	if err != nil {
 		return nil, nil, false
 	}
-	if time.Now().Unix()-tsInt > 30*24*3600 {
+	if time.Now().Unix()-tsInt > ttlDays*24*3600 {
 		return nil, nil, false
 	}
 
 	// Get the value
 	vals, err := r.client.LRange(context.TODO(), key, 0, -1).Result()
-	if err != nil {
+	if err != nil || len(vals) == 0 {
 		return nil, nil, false
 	}
 	colors, counts := r.parseRedisOut(vals)
@@ -51,32 +53,38 @@ func (r Redis) Get(key string) ([]string, []int, bool) {
 
 func (r Redis) Set(key string, colors []string, counts []int) {
 	vals := r.parseRedisIn(colors, counts)
-	r.client.RPush(context.TODO(), key, vals) // TTL?
+	resInt := r.client.RPush(context.TODO(), key, vals) // TTL?
+	if resInt.Err() != nil || resInt.Val() != 3 {
+		// TODO: Handle error here!!
+	}
 
 	// Set the timestamp of the key
 	tsKey := key + "_t"
-	r.client.Set(context.TODO(), tsKey, time.Now().Unix(), 0)
+	tsStat := r.client.Set(context.TODO(), tsKey, time.Now().Unix(), 0)
+	if tsStat.Val() != "OK" {
+		// TODO: Handle error here!!
+	}
 }
 
 func (r Redis) parseRedisOut(vals []string) ([]string, []int) {
 	colors := make([]string, len(vals))
 	counts := make([]int, len(vals))
 	for i, c := range vals {
-		count, err := strconv.Atoi(c[6:])
+		count, err := strconv.Atoi(c[7:])
 		if err != nil {
 			fmt.Println("Error converting count to int")
 			count = 2500 // Literally out of thin air
 		}
 
-		colors[i] = c[:6]
+		colors[i] = c[:7]
 		counts[i] = count
 
 	}
 	return colors, counts
 }
 
-func (r Redis) parseRedisIn(colors []string, counts []int) [3]string {
-	out := [3]string{}
+func (r Redis) parseRedisIn(colors []string, counts []int) []string {
+	out := []string{"", "", ""}
 	for i := 0; i < 3; i++ {
 		if i >= len(colors) {
 			out[i] = ""
