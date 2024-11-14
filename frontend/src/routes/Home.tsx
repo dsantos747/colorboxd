@@ -21,7 +21,7 @@ const Home = () => {
         </div>
         <div className='hidden sm:block bg-blue-50 bg-opacity-20 rounded-2xl py-6 px-6'>
           <p className='text-sm'><strong>EDIT 11/2024:</strong> Colorboxd is under maintenance, as it is in dire need of some performance and stability improvements. I will work hard to get it back up and running as soon as I can!<br></br>
-            If you'd like to be notified when it's ready, you can either fill out <a className='underline font-semibold decoration-2' target="_blank" href="example.com">this form</a>, or periodically check this <a className='underline font-semibold decoration-2' target="_blank" href="https://www.reddit.com/r/Letterboxd/comments/1cd2mqx/i_created_colorboxd_a_website_that_lets_you_sort/">reddit post</a>.</p>
+            If you&apos;d like to be notified when it&apos;s ready, you can either fill out <a className='underline font-semibold decoration-2' target="_blank" href="example.com">this form</a>, or periodically check this <a className='underline font-semibold decoration-2' target="_blank" href="https://www.reddit.com/r/Letterboxd/comments/1cd2mqx/i_created_colorboxd_a_website_that_lets_you_sort/">reddit post</a>.</p>
         </div>
       </div>
 
@@ -31,7 +31,7 @@ const Home = () => {
       </div>
       <div className='sm:hidden bg-blue-50 bg-opacity-20 rounded-2xl py-4 px-4 scale-75 '>
         <p className='text-sm'><strong>EDIT 11/2024:</strong> Colorboxd is under maintenance, as it is in dire need of some performance and stability improvements. I will work hard to get it back up and running as soon as I can!<br></br>
-          If you'd like to be notified when it's ready, you can either fill out <a className='underline font-semibold decoration-2' target="_blank" href="example.com">this form</a>, or periodically check this <a className='underline font-semibold decoration-2' target="_blank" href="https://www.reddit.com/r/Letterboxd/comments/1cd2mqx/i_created_colorboxd_a_website_that_lets_you_sort/">reddit post</a>.</p>
+          If you&apos;d like to be notified when it&apos;s ready, you can either fill out <a className='underline font-semibold decoration-2' target="_blank" href="example.com">this form</a>, or periodically check this <a className='underline font-semibold decoration-2' target="_blank" href="https://www.reddit.com/r/Letterboxd/comments/1cd2mqx/i_created_colorboxd_a_website_that_lets_you_sort/">reddit post</a>.</p>
       </div>
     </div>
   );
