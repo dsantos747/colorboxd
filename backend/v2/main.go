@@ -7,12 +7,22 @@ import (
 	"os"
 )
 
+var CR *ColorRepo
+
 func main() {
 	ctx := context.Background()
 
+	l := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	err := LoadEnv()
 	if err != nil {
-		slog.Log(ctx, slog.LevelError, "failed to load envs", "err", err)
+		l.Error("failed to load envs", "err", err)
+		return
+	}
+
+	CR, err = NewColorRepo(l)
+	if err != nil {
+		l.Error("failed to load colorRepo", "err", err)
 		return
 	}
 
