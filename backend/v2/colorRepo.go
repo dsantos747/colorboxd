@@ -1,4 +1,4 @@
-package colorboxd
+package main
 
 import (
 	"context"
@@ -60,7 +60,7 @@ func (cr *ColorRepo) assertPosterColorType(p any, id string) (PosterColor, error
 	case PosterColor:
 		return poster, nil
 	}
-	return PosterColor{}, fmt.Errorf("invalid color, deleted from store%w", "")
+	return PosterColor{}, fmt.Errorf("invalid color, deleted from store%s", "")
 }
 
 // getStoreLength returns the current length of the store

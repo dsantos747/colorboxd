@@ -1,4 +1,4 @@
-package colorboxd
+package main
 
 import (
 	"context"
