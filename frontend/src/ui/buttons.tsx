@@ -56,14 +56,6 @@ const CoffeeButton = () => {
   );
 };
 
-const MaintenanceButton = () => {
-  return (
-    <button disabled={true} className={`${sadButtonStyle}`}>
-      Under Maintenance
-    </button>
-  );
-};
-
 type ButtonProps = {
   readonly handleClick: React.MouseEventHandler<HTMLButtonElement>;
   readonly theme: 'happy' | 'sad';
@@ -81,4 +73,4 @@ const Button = ({ handleClick, theme, type = 'button', disabled = false, childre
   );
 };
 
-export { LoginButton, SignOutButton, CoffeeButton, Button, MaintenanceButton };
+export { LoginButton, SignOutButton, CoffeeButton, Button };
