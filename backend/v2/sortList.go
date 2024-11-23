@@ -2,6 +2,7 @@ package main
 
 import (
 	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -82,6 +83,8 @@ func SortList(w http.ResponseWriter, r *http.Request) {
 	response := map[string][]Entry{
 		"items": *entriesWithRanking,
 	}
+
+	fmt.Println("Store length is", CR.GetStoreLength())
 
 	// Return response to client
 	w.Header().Set("Content-Type", "application/json")
@@ -182,45 +185,49 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 // This worker (pool size limited by workerCount) listens on imageChan, downloads the image and
 // extracts the colour information, then returns the populated Entry to colorChan
 func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, errChan chan<- error) {
+
+	ctx := context.Background() // Hack for now
+
 	for image := range imageChan {
 		// Here need to first check redis cache for image info
 		// var cacheHit bool
 		entry := &image.info
 
-		// hexes, counts, cacheHit := rc.Get(image.info.FilmID)
+		cacheMap := CR.Get(ctx, []string{image.info.PosterURL}) // REQUIRED OPTIMISATION: Make one request to colorRepo for all posters, outside of this worker
 
-		// if cacheHit {
-		// entry.ImageInfo.Colors = parseColors(hexes, counts)
-		// } else {
-		// Fetch image and process
-		img, err := loadImage(image.info.ImageInfo.Path)
-		if err != nil {
-			errChan <- fmt.Errorf("error loading image %s: %v", image.info.ImageInfo.Path, err)
-			wg.Done()
-			continue
+		if val, ok := cacheMap[image.info.PosterURL]; ok {
+			entry.ImageInfo.Colors = parseColors(val)
+		} else {
+
+			// Fetch image and process
+			img, err := loadImage(image.info.ImageInfo.Path)
+			if err != nil {
+				errChan <- fmt.Errorf("error loading image %s: %v", image.info.ImageInfo.Path, err)
+				wg.Done()
+				continue
+			}
+
+			image.img = img
+
+			entry, err = getImageInfo(image.info, image.img)
+			if err != nil {
+				errChan <- fmt.Errorf("error getting image color info for poster for %s: %v", image.info.Name, err)
+				wg.Done()
+				continue
+			}
+
+			// Set to ColorRepo
+			// todo, NEED to ensure that the key we are using is the id of the film poster - not the id of the film itself
+			// The letterboxd api has a posterPickerUrl, which is to do with the custom poster chosen in a list. Could we use this?
+			// Maybe, check if that field is empty or not when the poster is standard, that could be useful
+			// Once you have the api key back, can use that to make some postman calls and check
+			// colors, counts := []string{}, []int{}
+			// for _, c := range entry.ImageInfo.Colors {
+			// 	colors = append(colors, c.hex)
+			// 	counts = append(counts, c.count)
+			// }
+			CR.Set(ctx, entry.ImageInfo.Path, entry.ImageInfo.Colors)
 		}
-
-		image.img = img
-
-		entry, err = getImageInfo(image.info, image.img)
-		if err != nil {
-			errChan <- fmt.Errorf("error getting image color info for poster for %s: %v", image.info.Name, err)
-			wg.Done()
-			continue
-		}
-
-		// Set to redis
-		// todo, NEED to ensure that the key we are using is the id of the film poster - not the id of the film itself
-		// The letterboxd api has a posterPickerUrl, which is to do with the custom poster chosen in a list. Could we use this?
-		// Maybe, check if that field is empty or not when the poster is standard, that could be useful
-		// Once you have the api key back, can use that to make some postman calls and check
-		// colors, counts := []string{}, []int{}
-		// for _, c := range entry.ImageInfo.Colors {
-		// 	colors = append(colors, c.hex)
-		// 	counts = append(counts, c.count)
-		// }
-		// rc.Set(image.info.FilmID, colors, counts)
-		// }
 
 		colorChan <- *entry
 		wg.Done()
@@ -311,14 +318,15 @@ func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 	return listEntries, nil
 }
 
-func parseColors(hexes []string, counts []int) []Color {
+func parseColors(cachedColor PosterColors) []Color {
 	var colors []Color
-	for i, hex := range hexes {
-		rgb, _ := colorful.Hex(hex)
+	for i, c := range cachedColor.colors {
+		rgb := c
+		hex := c.Hex()
 		hue, sat, lum := rgb.Hsl()
 		_, _, val := rgb.Hsv()
 
-		colors = append(colors, Color{rgb: rgb, hex: hex, h: hue, s: sat, l: lum, v: val, count: counts[i]})
+		colors = append(colors, Color{rgb: rgb, hex: hex, h: hue, s: sat, l: lum, v: val, count: cachedColor.counts[i]})
 	}
 
 	return colors

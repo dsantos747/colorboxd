@@ -10,10 +10,10 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-type PosterColor struct {
-	posterID    string
+type PosterColors struct {
+	posterURL   string
 	colors      []colorful.Color
-	count       []int
+	counts      []int
 	lastQueried time.Time
 }
 
@@ -32,35 +32,54 @@ func NewColorRepo(l *slog.Logger) (*ColorRepo, error) {
 	return cr, nil
 }
 
-func (cr *ColorRepo) Get(ctx context.Context, posterIDs []string) map[string]PosterColor {
-	pc := make(map[string]PosterColor)
+func (cr *ColorRepo) Get(ctx context.Context, posterURLs []string) map[string]PosterColors {
+	pc := make(map[string]PosterColors)
 
-	for _, id := range posterIDs {
-		p, _ := cr.posterColors.Load(id)
-		poster, err := cr.assertPosterColorType(p, id)
+	for _, url := range posterURLs {
+		p, _ := cr.posterColors.Load(url)
+		poster, err := cr.assertPosterColorType(p, url)
 		if err != nil {
 			continue
 		}
 		poster.lastQueried = time.Now()
-		cr.posterColors.Store(id, poster)
-		pc[poster.posterID] = poster
+		cr.posterColors.Store(url, poster)
+		pc[poster.posterURL] = poster
 	}
 
 	return pc
 }
 
-func (cr *ColorRepo) assertPosterColorType(p any, id string) (PosterColor, error) {
+func (cr *ColorRepo) Set(ctx context.Context, posterURL string, posterColors []Color) error {
+	poster := PosterColors{
+		posterURL:   posterURL,
+		colors:      make([]colorful.Color, len(posterColors)),
+		counts:      make([]int, len(posterColors)),
+		lastQueried: time.Now(),
+	}
+
+	//Convert Color to posterColors
+	for i, col := range posterColors {
+		poster.colors[i] = col.rgb
+		poster.counts[i] = col.count
+	}
+
+	cr.posterColors.Store(posterURL, poster)
+
+	return nil
+}
+
+func (cr *ColorRepo) assertPosterColorType(p any, url string) (PosterColors, error) {
 	switch poster := p.(type) {
-	case *PosterColor:
+	case *PosterColors:
 		if poster == nil {
-			cr.posterColors.Delete(id)
+			cr.posterColors.Delete(url)
 			break
 		}
 		return *poster, nil
-	case PosterColor:
+	case PosterColors:
 		return poster, nil
 	}
-	return PosterColor{}, fmt.Errorf("invalid color, deleted from store%s", "")
+	return PosterColors{}, fmt.Errorf("invalid color, deleted from store%s", "")
 }
 
 // getStoreLength returns the current length of the store

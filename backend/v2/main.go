@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -27,16 +28,17 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("api/v2/AuthUser", AuthUser)
-	mux.HandleFunc("api/v2/GetLists", GetLists)
-	mux.HandleFunc("api/v2/SortList", SortList)
-	mux.HandleFunc("api/v2/WriteList", WriteList)
+	mux.HandleFunc("/api/v2/AuthUser", AuthUser)
+	mux.HandleFunc("/api/v2/GetLists", GetLists)
+	mux.HandleFunc("/api/v2/SortList", SortList)
+	mux.HandleFunc("/api/v2/WriteList", WriteList)
 
 	server := http.Server{
 		Addr:    ":8080",
 		Handler: headerMiddleware(mux),
 	}
 
+	slog.Log(ctx, slog.LevelInfo, "starting main server", "addr", server.Addr)
 	if err := server.ListenAndServe(); err != nil {
 		slog.Log(ctx, slog.LevelError, "failed to listenandserve on main server", "err", err)
 		os.Exit(1)
