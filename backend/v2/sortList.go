@@ -10,6 +10,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"time"
 
 	// Accepted image formats in loadImage
 	_ "image/jpeg"
@@ -27,20 +28,6 @@ import (
 func SortList(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// // Read env variables
-	// err = LoadEnv()
-	// if err != nil {
-	// 	fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-	// 	return
-	// }
-
-	// rc = redis.New(os.Getenv("REDIS_URL"))
-
-	// // Set necessary headers for CORS and cache policy
-	// w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
-	// w.Header().Set("Access-Control-Allow-Credentials", "true")
-	// w.Header().Set("Cache-Control", "private, max-age=3600")
-
 	// Read accessToken from query url - return error if not present
 	accessToken := r.URL.Query().Get("accessToken")
 	if accessToken == "" {
@@ -55,6 +42,16 @@ func SortList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	t0 := time.Now()
+
+	//
+	//
+	// IMPROVEMENT: Add context. Then, can set a timeout to cancel requests which are taking too long. HOWEVER,
+	// should make sure that everything that we have processed thus far is set to cache before we cancel. So
+	// users can retry the request and it'd be much quicker.
+	//
+	//
+
 	// Get Entries from List
 	listEntries, err := getListEntries(accessToken, listId)
 	if err != nil {
@@ -62,13 +59,15 @@ func SortList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// start := time.Now()
+	t1 := time.Now()
+
 	entriesWithImageInfo, err := processListImages(listEntries)
 	if err != nil {
 		ReturnError(w, fmt.Errorf("failed to process posters for list entries: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
-	// fmt.Println("Process list images took: ", time.Since(start))
+
+	t2 := time.Now()
 
 	entriesWithRanking, err := assignListRankings(entriesWithImageInfo)
 	if err != nil {
@@ -76,15 +75,25 @@ func SortList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	t3 := time.Now()
 	slices.SortFunc[[]Entry](*entriesWithRanking, func(a, b Entry) int {
 		return cmp.Compare[int](AlgoHue(a.ImageInfo.Colors), AlgoHue(b.ImageInfo.Colors))
 	})
+
+	t4 := time.Now()
 
 	response := map[string][]Entry{
 		"items": *entriesWithRanking,
 	}
 
-	fmt.Println("Store length is", CR.GetStoreLength())
+	Logger.Info("SortList request complete",
+		"storeLength", CR.GetStoreLength(),
+		"t_getListEntries", t1.Sub(t0).Seconds(),
+		"t_processListImages", t2.Sub(t1).Seconds(),
+		"t_assignListRankings", t3.Sub(t2).Seconds(),
+		"t_finalSort", t4.Sub(t3).Seconds(),
+		"startEntryCount", len(*listEntries),
+		"finalEntryCount", len(*entriesWithRanking))
 
 	// Return response to client
 	w.Header().Set("Content-Type", "application/json")
@@ -99,6 +108,17 @@ func getListEntries(token, id string) (*[]Entry, error) {
 	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)}
 	var listEntriesData []ListEntries
 
+	//
+	//
+	// IMPROVEMENT: Need to use goroutines here to speed up this process. An errGroup should do it.
+	// Need to consider that there might be some rate-limiting on the api, so need to check if response is
+	// an error related to rate-Limiting, and then maybe have a backoff-retry loop
+	// CHALLENGE: We only know nextCursor after we've made the request! Is there a way to get the length of the list first?
+	// SOLUTION: Yes there is! Call just list/{id} first, get filmCount and use that. On the last goroutine, should check that
+	// the value of .next (pagination cursor) is 0, to make sure we've got all the entries.
+	// In fact, we already have the film count in getLists! So just use that. Maybe easier to send it from FE
+	//
+	//
 	// Loop until no "next" pagination cursor is present in response
 	for len(nextCursor) > 0 {
 		query := fmt.Sprintf("?cursor=%s&perPage=100", nextCursor)
@@ -153,6 +173,14 @@ func getListEntries(token, id string) (*[]Entry, error) {
 func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 	var entrySlice []Entry
 	n := len(*listEntries)
+
+	//
+	//
+	// IMPROVEMENT: Think the worker pattern is probably just overcomplicating things. Surely we could use an
+	// errGroup instead. Also need to check the cache for allEntries first, then only process the ones which
+	// were not found.
+	//
+	//
 
 	var wg sync.WaitGroup
 	imageChan := make(chan Image, n)
@@ -216,16 +244,7 @@ func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, 
 				continue
 			}
 
-			// Set to ColorRepo
-			// todo, NEED to ensure that the key we are using is the id of the film poster - not the id of the film itself
-			// The letterboxd api has a posterPickerUrl, which is to do with the custom poster chosen in a list. Could we use this?
-			// Maybe, check if that field is empty or not when the poster is standard, that could be useful
-			// Once you have the api key back, can use that to make some postman calls and check
-			// colors, counts := []string{}, []int{}
-			// for _, c := range entry.ImageInfo.Colors {
-			// 	colors = append(colors, c.hex)
-			// 	counts = append(counts, c.count)
-			// }
+			// Set to cache
 			CR.Set(ctx, entry.ImageInfo.Path, entry.ImageInfo.Colors)
 		}
 

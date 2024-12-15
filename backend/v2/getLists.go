@@ -11,18 +11,6 @@ import (
 func GetLists(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// // Read env variables
-	// err = LoadEnv()
-	// if err != nil {
-	// 	fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-	// 	return
-	// }
-
-	// // Set necessary headers for CORS and cache policy
-	// w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
-	// w.Header().Set("Access-Control-Allow-Credentials", "true")
-	// w.Header().Set("Cache-Control", "private, max-age=3600")
-
 	// Read accessToken from query url - return error if not present
 	accessToken := r.URL.Query().Get("accessToken")
 	if accessToken == "" {

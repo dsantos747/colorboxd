@@ -1,29 +1,27 @@
 package main
 
 import (
-	"context"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
+
+	_ "net/http/pprof"
 )
 
 var CR *ColorRepo
 
+var Logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 func main() {
-	ctx := context.Background()
-
-	l := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
 	err := LoadEnv()
 	if err != nil {
-		l.Error("failed to load envs", "err", err)
+		Logger.Error("failed to load envs", "err", err)
 		return
 	}
 
-	CR, err = NewColorRepo(l)
+	CR, err = NewColorRepo(Logger)
 	if err != nil {
-		l.Error("failed to load colorRepo", "err", err)
+		Logger.Error("failed to load colorRepo", "err", err)
 		return
 	}
 
@@ -38,9 +36,9 @@ func main() {
 		Handler: headerMiddleware(mux),
 	}
 
-	slog.Log(ctx, slog.LevelInfo, "starting main server", "addr", server.Addr)
+	Logger.Info("starting main server", "addr", server.Addr)
 	if err := server.ListenAndServe(); err != nil {
-		slog.Log(ctx, slog.LevelError, "failed to listenandserve on main server", "err", err)
+		Logger.Error("failed to listenandserve on main server", "err", err)
 		os.Exit(1)
 	}
 }

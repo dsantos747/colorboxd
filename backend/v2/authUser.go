@@ -13,18 +13,6 @@ import (
 func AuthUser(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// // Read env variables
-	// err = LoadEnv()
-	// if err != nil {
-	// 	fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-	// 	return
-	// }
-
-	// // Set necessary headers for CORS and cache policy
-	// w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
-	// w.Header().Set("Access-Control-Allow-Credentials", "true")
-	// w.Header().Set("Cache-Control", "private, max-age=3595") // Expire time of token (-5s for safety)
-
 	// Read authCode from query url - return error if not present
 	authCode := r.URL.Query().Get("authCode")
 	if authCode == "" {

@@ -16,16 +16,6 @@ import (
 func WriteList(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// // Read env variables
-	// err = LoadEnv()
-	// if err != nil {
-	// 	fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-	// 	return
-	// }
-
-	// // Set necessary headers for CORS
-	// w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
-	// w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
