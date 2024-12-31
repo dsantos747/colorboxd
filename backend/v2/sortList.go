@@ -19,6 +19,7 @@ import (
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/disintegration/imaging"
 	"github.com/lucasb-eyer/go-colorful"
+	"golang.org/x/sync/errgroup"
 )
 
 // var rc redis.Redis
@@ -168,6 +169,51 @@ func getListEntries(token, id string) (*[]Entry, error) {
 	return &entries, nil
 }
 
+// This v2 method bypasses the whole worker pattern and just uses a good old errgroup. NEEDS TO BE TESTED
+func processListImagesV2(listEntries *[]Entry) (*[]Entry, error) {
+	var entries []Entry
+
+	ctx := context.Background() // Hack for now
+
+	errGroup, ctx := errgroup.WithContext(ctx)
+
+	for _, entry := range *listEntries {
+		errGroup.Go(func() error {
+
+			cacheMap := CR.Get(ctx, []string{entry.ImageInfo.Path}) // IMPROVEMENT: Make one request to colorRepo for all posters, outside of this worker
+
+			if val, ok := cacheMap[entry.ImageInfo.Path]; ok {
+				entry.ImageInfo.Colors = parseColors(val)
+			} else {
+
+				img, err := loadImage(entry.ImageInfo.Path)
+				if err != nil {
+					return fmt.Errorf("error loading image %s: %v", entry.ImageInfo.Path, err)
+				}
+
+				entry, err := getImageInfo(entry, img)
+				if err != nil {
+					return fmt.Errorf("error getting image color info for poster for %s: %v", entry.Name, err)
+				}
+
+				go func() {
+					subCtx := context.Background()
+					CR.Set(subCtx, entry.ImageInfo.Path, entry.ImageInfo.Colors)
+				}()
+
+				entries = append(entries, *entry)
+			}
+			return nil
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		return nil, err
+	}
+
+	return &entries, nil
+}
+
 // For a slice of entries, this creates some goroutines which download the poster and extract colour
 // information for each film. workerCount can be used to adjust the amount of goroutines.
 func processListImages(listEntries *[]Entry) (*[]Entry, error) {
@@ -217,11 +263,10 @@ func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, 
 	ctx := context.Background() // Hack for now
 
 	for image := range imageChan {
-		// Here need to first check redis cache for image info
 		// var cacheHit bool
 		entry := &image.info
 
-		cacheMap := CR.Get(ctx, []string{image.info.PosterURL}) // REQUIRED OPTIMISATION: Make one request to colorRepo for all posters, outside of this worker
+		cacheMap := CR.Get(ctx, []string{image.info.PosterURL}) // IMPROVEMENT: Make one request to colorRepo for all posters, outside of this worker
 
 		if val, ok := cacheMap[image.info.PosterURL]; ok {
 			entry.ImageInfo.Colors = parseColors(val)
