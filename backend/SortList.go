@@ -2,6 +2,7 @@ package colorboxd
 
 import (
 	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -18,6 +19,7 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/dsantos747/letterboxd_hue_sort/backend/redis"
 	"github.com/lucasb-eyer/go-colorful"
+	"golang.org/x/sync/errgroup"
 )
 
 var rc redis.Redis
@@ -141,6 +143,55 @@ func getListEntries(token, id string) (*[]Entry, error) {
 			AdultPosterURL:     adultUrl,
 			ImageInfo:          ImageInfo{Path: imgPath},
 		}
+	}
+
+	return &entries, nil
+}
+
+// This v2 method bypasses the whole worker pattern and just uses a good old errgroup. NEEDS TO BE TESTED
+func processListImagesV2(listEntries *[]Entry) (*[]Entry, error) {
+	var entries []Entry
+
+	ctx := context.Background() // Hack for now
+
+	errGroup, ctx := errgroup.WithContext(ctx)
+
+	for _, entry := range *listEntries {
+		errGroup.Go(func() error {
+
+			hexes, counts, cacheHit := rc.Get(entry.FilmID)
+
+			if cacheHit {
+				entry.ImageInfo.Colors = parseColors(hexes, counts)
+			} else {
+
+				img, err := loadImage(entry.ImageInfo.Path)
+				if err != nil {
+					return fmt.Errorf("error loading image %s: %v", entry.ImageInfo.Path, err)
+				}
+
+				entry, err := getImageInfo(entry, img)
+				if err != nil {
+					return fmt.Errorf("error getting image color info for poster for %s: %v", entry.Name, err)
+				}
+
+				go func() {
+					colors, counts := []string{}, []int{}
+					for _, c := range entry.ImageInfo.Colors {
+						colors = append(colors, c.hex)
+						counts = append(counts, c.count)
+					}
+					rc.Set(entry.FilmID, colors, counts)
+				}()
+
+				entries = append(entries, *entry)
+			}
+			return nil
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		return nil, err
 	}
 
 	return &entries, nil

@@ -11,6 +11,19 @@ github.com/GoogleCloudPlatform/functions-framework-go/functions
 github.com/GoogleCloudPlatform/functions-framework-go/internal/events/pubsub
 github.com/GoogleCloudPlatform/functions-framework-go/internal/fftypes
 github.com/GoogleCloudPlatform/functions-framework-go/internal/registry
+# github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302
+## explicit
+github.com/alicebob/gopher-json
+# github.com/alicebob/miniredis/v2 v2.34.0
+## explicit; go 1.17
+github.com/alicebob/miniredis/v2
+github.com/alicebob/miniredis/v2/fpconv
+github.com/alicebob/miniredis/v2/geohash
+github.com/alicebob/miniredis/v2/hyperloglog
+github.com/alicebob/miniredis/v2/metro
+github.com/alicebob/miniredis/v2/proto
+github.com/alicebob/miniredis/v2/server
+github.com/alicebob/miniredis/v2/size
 # github.com/cespare/xxhash/v2 v2.2.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
@@ -102,6 +115,12 @@ github.com/ysmood/gson
 github.com/ysmood/leakless
 github.com/ysmood/leakless/pkg/shared
 github.com/ysmood/leakless/pkg/utils
+# github.com/yuin/gopher-lua v1.1.1
+## explicit; go 1.17
+github.com/yuin/gopher-lua
+github.com/yuin/gopher-lua/ast
+github.com/yuin/gopher-lua/parse
+github.com/yuin/gopher-lua/pm
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
@@ -122,3 +141,6 @@ golang.org/x/image/bmp
 golang.org/x/image/ccitt
 golang.org/x/image/tiff
 golang.org/x/image/tiff/lzw
+# golang.org/x/sync v0.8.0
+## explicit; go 1.18
+golang.org/x/sync/errgroup
