@@ -11,6 +11,8 @@ import (
 	"slices"
 	"sync"
 
+	// "crypto/md5" // use this for url hashing for redis key
+
 	// Accepted image formats in loadImage
 	_ "image/jpeg"
 	_ "image/png"
@@ -159,10 +161,10 @@ func processListImagesV2(listEntries *[]Entry) (*[]Entry, error) {
 	for _, entry := range *listEntries {
 		errGroup.Go(func() error {
 
-			hexes, counts, cacheHit := rc.Get(entry.FilmID)
+			res := rc.Get(entry.FilmID)
 
-			if cacheHit {
-				entry.ImageInfo.Colors = parseColors(hexes, counts)
+			if res.Hit {
+				entry.ImageInfo.Colors = parseColors(res.Colors, res.Counts)
 			} else {
 
 				img, err := loadImage(entry.ImageInfo.Path)
@@ -236,13 +238,12 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, errChan chan<- error) {
 	for image := range imageChan {
 		// Here need to first check redis cache for image info
-		var cacheHit bool
 		entry := &image.info
 
-		hexes, counts, cacheHit := rc.Get(image.info.FilmID)
+		res := rc.Get(image.info.FilmID)
 
-		if cacheHit {
-			entry.ImageInfo.Colors = parseColors(hexes, counts)
+		if res.Hit {
+			entry.ImageInfo.Colors = parseColors(res.Colors, res.Counts)
 		} else {
 			// Fetch image and process
 			img, err := loadImage(image.info.ImageInfo.Path)
