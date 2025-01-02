@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image"
 	"net/http"
+	"net/url"
 	"os"
 	"slices"
 	"sync"
@@ -134,6 +135,15 @@ func getListEntries(token, id string) (*[]Entry, error) {
 			imgPath = adultUrl
 		}
 
+		parsedURL, err := url.Parse(imgPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse img url: %w", err)
+		}
+		version := parsedURL.Query().Get("v")
+		if version == "" {
+			return nil, fmt.Errorf("failed to extract version from img url")
+		}
+
 		entries[i] = Entry{
 			EntryID:            item.EntryID,
 			FilmID:             item.Film.ID,
@@ -143,8 +153,69 @@ func getListEntries(token, id string) (*[]Entry, error) {
 			PosterCustomisable: item.Film.PosterCustomisable,
 			PosterURL:          item.Film.Poster.Sizes[0].URL,
 			AdultPosterURL:     adultUrl,
+			CacheKey:           fmt.Sprintf("%s_%s", item.Film.ID, version), // underscore is important in key format
 			ImageInfo:          ImageInfo{Path: imgPath},
 		}
+	}
+
+	return &entries, nil
+}
+
+// This is like the v2 method, but gets a batch from redis. ALSO NEEDS TO BE TESTED
+func processListImagesV3(listEntries *[]Entry) (*[]Entry, error) {
+	var entries []Entry
+
+	ctx := context.Background() // Hack for now
+
+	errGroup, ctx := errgroup.WithContext(ctx)
+
+	keys := []string{}
+	for _, entry := range *listEntries {
+		keys = append(keys, entry.CacheKey)
+	}
+
+	res, err := rc.GetBatch(keys)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup keys in redis: %w", err)
+	}
+
+	for _, e := range *listEntries {
+		// Append entries fetched from cache
+		if res[e.CacheKey].Hit {
+			entry := e
+			entry.ImageInfo.Colors = parseColors(res[e.CacheKey].Colors, res[e.CacheKey].Counts)
+			entries = append(entries, entry)
+			continue
+		}
+		// Process any entries not available in cache
+		errGroup.Go(func() error {
+			img, err := loadImage(e.ImageInfo.Path)
+			if err != nil {
+				return fmt.Errorf("error loading image %s: %v", e.ImageInfo.Path, err)
+			}
+
+			entry, err := getImageInfo(e, img)
+			if err != nil {
+				return fmt.Errorf("error getting image color info for poster for %s: %v", entry.Name, err)
+			}
+
+			go func() {
+				colors, counts := []string{}, []int{}
+				for _, c := range entry.ImageInfo.Colors {
+					colors = append(colors, c.hex)
+					counts = append(counts, c.count)
+				}
+				rc.Set(entry.CacheKey, colors, counts)
+			}()
+
+			entries = append(entries, *entry)
+
+			return nil
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		return nil, err
 	}
 
 	return &entries, nil
@@ -158,21 +229,25 @@ func processListImagesV2(listEntries *[]Entry) (*[]Entry, error) {
 
 	errGroup, ctx := errgroup.WithContext(ctx)
 
-	for _, entry := range *listEntries {
+	for _, e := range *listEntries {
 		errGroup.Go(func() error {
 
-			res := rc.Get(entry.FilmID)
+			res, err := rc.Get(e.CacheKey)
+			if err != nil {
+				return fmt.Errorf("failed to fetch from redis: %w", err)
+			}
 
 			if res.Hit {
+				entry := e
 				entry.ImageInfo.Colors = parseColors(res.Colors, res.Counts)
+				entries = append(entries, entry)
 			} else {
-
-				img, err := loadImage(entry.ImageInfo.Path)
+				img, err := loadImage(e.ImageInfo.Path)
 				if err != nil {
-					return fmt.Errorf("error loading image %s: %v", entry.ImageInfo.Path, err)
+					return fmt.Errorf("error loading image %s: %v", e.ImageInfo.Path, err)
 				}
 
-				entry, err := getImageInfo(entry, img)
+				entry, err := getImageInfo(e, img)
 				if err != nil {
 					return fmt.Errorf("error getting image color info for poster for %s: %v", entry.Name, err)
 				}
@@ -183,7 +258,7 @@ func processListImagesV2(listEntries *[]Entry) (*[]Entry, error) {
 						colors = append(colors, c.hex)
 						counts = append(counts, c.count)
 					}
-					rc.Set(entry.FilmID, colors, counts)
+					rc.Set(entry.CacheKey, colors, counts)
 				}()
 
 				entries = append(entries, *entry)
@@ -240,7 +315,11 @@ func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, 
 		// Here need to first check redis cache for image info
 		entry := &image.info
 
-		res := rc.Get(image.info.FilmID)
+		res, err := rc.Get(image.info.CacheKey)
+		if err != nil {
+			errChan <- fmt.Errorf("failed to fetch from redis: %w", err)
+			continue
+		}
 
 		if res.Hit {
 			entry.ImageInfo.Colors = parseColors(res.Colors, res.Counts)
@@ -272,7 +351,7 @@ func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, 
 				colors = append(colors, c.hex)
 				counts = append(counts, c.count)
 			}
-			rc.Set(image.info.FilmID, colors, counts)
+			rc.Set(image.info.CacheKey, colors, counts)
 		}
 
 		colorChan <- *entry

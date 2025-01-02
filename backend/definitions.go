@@ -88,6 +88,7 @@ type Entry struct {
 	PosterCustomisable bool   `json:"posterCustomisable"`
 	PosterURL          string `json:"posterUrl"`
 	AdultPosterURL     string `json:"adultPosterUrl"`
+	CacheKey           string // constructed from the filmID and the verson parameter in the poster url
 	ImageInfo          ImageInfo
 	SortVals           SortVals `json:"sorts"`
 	Hex1               string   `json:"hex1"`

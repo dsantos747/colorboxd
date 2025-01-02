@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -9,10 +10,6 @@ import (
 
 	"github.com/redis/go-redis/v9"
 )
-
-// TODO:
-// - Create "GetBatch" method
-// - Don't check for a ttl parameter, or set a specific ttl key. Just rely on redis's own ttl mechanism, which will return false if the key is stale. Investigate this.
 
 const ttlDays int64 = 30
 
@@ -59,7 +56,14 @@ func (r Redis) GetBatch(keys []string) (map[string]CacheResponse, error) {
 			return nil, fmt.Errorf("failed to convert redis response to string")
 		}
 
-		colors, counts := r.parseRedisOut(vals)
+		colors, counts, err := r.parseRedisOut(vals)
+		if err != nil {
+			fmt.Println("error parsing output from redis: %w", err)
+			res[key] = CacheResponse{
+				Hit: false,
+			}
+			continue
+		}
 
 		res[key] = CacheResponse{
 			Colors: colors,
@@ -72,66 +76,84 @@ func (r Redis) GetBatch(keys []string) (map[string]CacheResponse, error) {
 }
 
 // Gets a value from redis given a key. If the key is stale, cacheHit is returned as false
-func (r Redis) Get(key string) CacheResponse {
+func (r Redis) Get(key string) (CacheResponse, error) {
 	// Get the value
 	vals, err := r.client.Get(context.TODO(), key).Result()
-	if err != nil || len(vals) == 0 {
-		return CacheResponse{Hit: false}
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return CacheResponse{Hit: false}, nil
+		}
+		return CacheResponse{}, fmt.Errorf("error getting from redis: %w", err) // If logs show nil err, then val == ""
 	}
-	colors, counts := r.parseRedisOut(vals)
-	return CacheResponse{Colors: colors, Counts: counts, Hit: true}
+	colors, counts, err := r.parseRedisOut(vals)
+	if err != nil {
+		return CacheResponse{Hit: false}, fmt.Errorf("error parsing output from redis: %w", err)
+	}
+
+	return CacheResponse{Colors: colors, Counts: counts, Hit: true}, nil
 }
 
-func (r Redis) Set(key string, colors []string, counts []int) {
+func (r Redis) Set(key string, colors []string, counts []int) error {
+	if !strings.Contains(key, "_") {
+		return fmt.Errorf("invalid redis key format")
+	}
+
 	ctx := context.Background()
 
-	val := r.parseRedisIn(colors, counts)
+	val, err := r.parseRedisIn(colors, counts)
+	if err != nil {
+		return fmt.Errorf("error parsing redis input: %w", err)
+	}
+
 	resInt := r.client.Set(ctx, key, val, time.Duration(ttlDays*24)*time.Hour)
 	if resInt.Err() != nil || resInt.Val() == "" {
-		// TODO: Handle error here!!
-		panic("unhandled redis setting error!")
+		return fmt.Errorf("error setting to redis: %w", resInt.Err()) // If logs show nil err, then val == ""
 	}
+	return nil
 }
 
-func (r Redis) parseRedisOut(vals string) ([]string, []int) {
+func (r Redis) parseRedisOut(vals string) ([]string, []int, error) {
 	colors := []string{}
 	counts := []int{}
 
 	slc := strings.Split(vals, ",")
 
 	if len(slc) != 3 {
-		panic("weird length of redis value")
+		return nil, nil, fmt.Errorf("unexpected length of value fetched from redis; length %d", len(slc))
 	}
 
 	for _, c := range slc {
 		count, err := strconv.Atoi(c[7:])
-		if err != nil {
-			fmt.Println("Error converting count to int")
-			count = 2500 // Literally out of thin air
+		if err != nil || count < 0 {
+			return nil, nil, fmt.Errorf("invalid count post-conversion: %w", err)
 		}
 
-		colors = append(colors, c[:7])
-		counts = append(counts, count)
+		if c[:7] != "XXXXXXX" {
+			colors = append(colors, c[:7])
+		}
+		if count != 0 {
+			counts = append(counts, count)
+		}
 
 	}
-	return colors, counts
+	return colors, counts, nil
 }
 
-func (r Redis) parseRedisIn(colors []string, counts []int) string {
+func (r Redis) parseRedisIn(colors []string, counts []int) (string, error) {
 	slc := []string{"", "", ""}
 	for i := 0; i < 3; i++ {
-		if i >= len(colors) {
+		if i >= min(len(colors), len(counts)) {
 			slc[i] = "XXXXXXX0000"
 			continue
 		}
 		if len(colors[i]) != 7 { // used during development
-			panic("weird color length")
+			return "", fmt.Errorf("weird color string length: %d", len(colors[i]))
 		}
-		if counts[i] > 9999 {
-			panic("count is too high")
+		if counts[i] > 9999 || counts[i] < 0 {
+			return "", fmt.Errorf("color count is out of range: %d", counts[i])
 		}
 
 		slc[i] = colors[i] + fmt.Sprintf("%04d", counts[i])
 	}
-	return strings.Join(slc, ",")
+	return strings.Join(slc, ","), nil
 }
