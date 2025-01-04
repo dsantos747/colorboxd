@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 import { UserTokenContext, UserTokenContextType } from '../lib/contexts';
-import { LoginButton, SignOutButton } from './buttons';
+import { LoginButton, SignOutButton, MaintenanceButton } from './buttons';
 import ColorboxdLogo from './colorboxdLogo';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -17,7 +17,8 @@ const Nav = () => {
             <ColorboxdLogo />
           </h1>
         </Link>
-        {isOnUserPage && userToken ? <SignOutButton /> : <LoginButton />}
+        {/* {isOnUserPage && userToken ? <SignOutButton /> : <LoginButton />} */}
+        <MaintenanceButton />
       </div>
     </nav>
   );
