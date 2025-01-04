@@ -6,22 +6,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"slices"
+	"strings"
 	"sync"
-
-	// "crypto/md5" // use this for url hashing for redis key
 
 	// Accepted image formats in loadImage
 	_ "image/jpeg"
 	_ "image/png"
 
+	"github.com/dsantos747/letterboxd_hue_sort/backend/redis"
+
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/disintegration/imaging"
-	"github.com/dsantos747/letterboxd_hue_sort/backend/redis"
 	"github.com/lucasb-eyer/go-colorful"
+	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -31,6 +33,9 @@ var rc redis.Redis
 // a user's Letterboxd list and consequently computing the different sort rankings.
 func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	var err error
+	ctx := context.Background() // Hack for now
+
+	l := slog.Default()
 
 	// Read env variables
 	err = LoadEnv()
@@ -61,23 +66,24 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get Entries from List
-	listEntries, err := getListEntries(accessToken, listId)
+	listEntries, err := getListEntries(ctx, accessToken, listId)
 	if err != nil {
-		ReturnError(w, fmt.Errorf("failed to retrieve entries from list: %w", err).Error(), http.StatusInternalServerError)
+		l.Error("failed to retrieve entries from list", "err", err)
+		ReturnError(w, "failed to retrieve entries from list", http.StatusInternalServerError)
 		return
 	}
 
-	// start := time.Now()
-	entriesWithImageInfo, err := processListImages(listEntries)
+	entriesWithImageInfo, err := processListImagesV3(ctx, listEntries)
 	if err != nil {
-		ReturnError(w, fmt.Errorf("failed to process posters for list entries: %w", err).Error(), http.StatusInternalServerError)
+		l.Error("failed to process posters for list entries", "err", err)
+		ReturnError(w, "failed to process posters for list entries", http.StatusInternalServerError)
 		return
 	}
-	// fmt.Println("Process list images took: ", time.Since(start))
 
 	entriesWithRanking, err := assignListRankings(entriesWithImageInfo)
 	if err != nil {
-		ReturnError(w, fmt.Errorf("failed assigning sort rankings for list: %w", err).Error(), http.StatusInternalServerError)
+		l.Error("failed assigning sort rankings for list", "err", err)
+		ReturnError(w, "failed assigning sort rankings for list", http.StatusInternalServerError)
 		return
 	}
 
@@ -94,33 +100,81 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func getFilmCount(token, id string) (int, error) {
+	method := "GET"
+	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)}
+	endpoint := fmt.Sprintf("%s/list/%s", os.Getenv("LBOXD_BASEURL"), id)
+
+	response, err := MakeHTTPRequest(method, endpoint, nil, headers)
+	if err != nil {
+		return 0, fmt.Errorf("error making HTTP request: %v", err)
+	}
+	defer response.Body.Close()
+
+	var responseData List
+	if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
+		return 0, fmt.Errorf("error decoding letterboxd list metadata JSON response: %v", err)
+	}
+
+	return int(responseData.FilmCount), nil
+}
+
 // For a given list id, returns a slice of each entry in the list
-func getListEntries(token, id string) (*[]Entry, error) {
-	nextCursor := "start=0"
+func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 	method := "GET"
 	endpoint := fmt.Sprintf("%s/list/%s/entries", os.Getenv("LBOXD_BASEURL"), id)
 	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)}
 	var listEntriesData []ListEntries
 
+	filmCount, err := getFilmCount(token, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get list length: %w", err)
+	}
+
+	errGroup, ctx := errgroup.WithContext(ctx)
+	mu := sync.Mutex{}
+
+	perPage := 100
+	curr := 0
+	done := false
+
 	// Loop until no "next" pagination cursor is present in response
-	for len(nextCursor) > 0 {
-		query := fmt.Sprintf("?cursor=%s&perPage=100", nextCursor)
+	for filmCount > 0 {
+		query := fmt.Sprintf("?cursor=%s&perPage=%d", fmt.Sprintf("start=%d", curr), perPage)
 		url := endpoint + query
 
-		response, err := MakeHTTPRequest(method, url, nil, headers)
-		if err != nil {
-			return nil, fmt.Errorf("error making HTTP request: %v", err)
-		}
-		defer response.Body.Close()
+		errGroup.Go(func() error {
+			response, err := MakeHTTPRequest(method, url, nil, headers)
+			if err != nil {
+				return fmt.Errorf("error making HTTP request: %v", err)
+			}
+			defer response.Body.Close()
 
-		var responseData ListEntriesResponse
-		if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
-			fmt.Println(err)
-			return nil, fmt.Errorf("error decoding letterboxd list entries JSON response: %v", err)
-		}
+			var responseData ListEntriesResponse
+			if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
+				return fmt.Errorf("error decoding letterboxd list entries JSON response: %v", err)
+			}
 
-		listEntriesData = append(listEntriesData, responseData.Items...)
-		nextCursor = responseData.Next
+			mu.Lock()
+			listEntriesData = append(listEntriesData, responseData.Items...)
+			mu.Unlock()
+
+			if len(responseData.Next) == 0 { // check we have done them all. Note this might not be the last routine to be processed
+				done = true
+			}
+			return nil
+		})
+
+		filmCount -= perPage
+		curr += perPage
+	}
+
+	err = errGroup.Wait()
+	if err != nil {
+		return nil, err
+	}
+	if !done {
+		return nil, fmt.Errorf("failed to retrieve all list entries%s", "")
 	}
 
 	// Extract relevant info from each item into []Entry format
@@ -161,14 +215,8 @@ func getListEntries(token, id string) (*[]Entry, error) {
 	return &entries, nil
 }
 
-// This is like the v2 method, but gets a batch from redis. ALSO NEEDS TO BE TESTED
-func processListImagesV3(listEntries *[]Entry) (*[]Entry, error) {
-	var entries []Entry
-
-	ctx := context.Background() // Hack for now
-
-	errGroup, ctx := errgroup.WithContext(ctx)
-
+func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, error) {
+	// First we query Redis
 	keys := []string{}
 	for _, entry := range *listEntries {
 		keys = append(keys, entry.CacheKey)
@@ -179,18 +227,47 @@ func processListImagesV3(listEntries *[]Entry) (*[]Entry, error) {
 		return nil, fmt.Errorf("failed to lookup keys in redis: %w", err)
 	}
 
+	// We pass through and append all cache hits
+	var entries, entriesToLoad []Entry
 	for _, e := range *listEntries {
+		entry := e
+
 		// Append entries fetched from cache
-		if res[e.CacheKey].Hit {
-			entry := e
-			entry.ImageInfo.Colors = parseColors(res[e.CacheKey].Colors, res[e.CacheKey].Counts)
+		if res[entry.CacheKey].Hit {
+			entry.ImageInfo.Colors = parseColors(res[entry.CacheKey].Colors, res[entry.CacheKey].Counts)
 			entries = append(entries, entry)
 			continue
 		}
+
+		entriesToLoad = append(entriesToLoad, entry)
+	}
+
+	// Then we go through the process of fetch images that we are missing
+	errGroup, ctx := errgroup.WithContext(ctx)
+	rl := ratelimit.New(500)
+	mu := sync.Mutex{}
+	rlCtx, rlCancel := context.WithCancel(ctx) // This is a hack to cancel all goroutines if we get rate-limited when loading images
+
+	var c_keys []string
+	var c_colors [][]string
+	var c_counts [][]int
+	for _, e := range entriesToLoad {
 		// Process any entries not available in cache
 		errGroup.Go(func() error {
+			rl.Take()
+
+			// This block cancels all goroutines if we're getting rate-limited
+			select {
+			case <-rlCtx.Done():
+				return rlCtx.Err()
+			default:
+			}
+
 			img, err := loadImage(e.ImageInfo.Path)
 			if err != nil {
+				if strings.Contains(err.Error(), "error fetching image from letterboxd servers") {
+					rlCancel()
+				}
 				return fmt.Errorf("error loading image %s: %v", e.ImageInfo.Path, err)
 			}
 
@@ -199,23 +276,32 @@ func processListImagesV3(listEntries *[]Entry) (*[]Entry, error) {
 				return fmt.Errorf("error getting image color info for poster for %s: %v", entry.Name, err)
 			}
 
-			go func() {
-				colors, counts := []string{}, []int{}
-				for _, c := range entry.ImageInfo.Colors {
-					colors = append(colors, c.hex)
-					counts = append(counts, c.count)
-				}
-				rc.Set(entry.CacheKey, colors, counts)
-			}()
+			colors, counts := []string{}, []int{}
+			for _, c := range entry.ImageInfo.Colors {
+				colors = append(colors, c.hex)
+				counts = append(counts, c.count)
+			}
+
+			mu.Lock()
+			c_keys = append(c_keys, entry.CacheKey)
+			c_colors = append(c_colors, colors)
+			c_counts = append(c_counts, counts)
 
 			entries = append(entries, *entry)
+			mu.Unlock()
 
 			return nil
 		})
 	}
 
-	if err := errGroup.Wait(); err != nil {
-		return nil, err
+	egErr := errGroup.Wait()
+	if len(keys) > 0 { // Even if we fail to process all, set to cache what we did manage
+		go func() {
+			rc.SetBatch(c_keys, c_colors, c_counts)
+		}()
+	}
+	if egErr != nil { // Then handle the error
+		return nil, egErr
 	}
 
 	return &entries, nil
@@ -365,7 +451,7 @@ func loadImage(path string) (image.Image, error) {
 
 	response, err := MakeHTTPRequest("GET", path, nil, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error fetching image from letterboxd servers: %w", err)
 	}
 	defer response.Body.Close()
 

@@ -173,12 +173,7 @@ func TestGetSetBatch(t *testing.T) {
 		}
 
 		var err error
-		for i, k := range tc.keys {
-			err = rc.Set(k, tc.colors[i], tc.counts[i])
-			if err != nil {
-				break
-			}
-		}
+		err = rc.SetBatch(tc.keys, tc.colors, tc.counts)
 		if tc.errStrSet != "" {
 			assert.ErrorContains(err, tc.errStrSet)
 		} else {

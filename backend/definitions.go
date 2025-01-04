@@ -51,6 +51,12 @@ type ListSummary struct {
 	Description string `json:"description"`
 }
 
+// The (partial) response format from Letterboxd list/{id} endpoint
+type List struct {
+	ID        string `json:"id"`
+	FilmCount int32  `json:"filmCount"`
+}
+
 // The (partial) response format from Letterboxd list/{id}/entries endpoint
 type ListEntriesResponse struct {
 	Next  string        `json:"next"`

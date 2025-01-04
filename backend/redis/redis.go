@@ -26,6 +26,9 @@ type CacheResponse struct {
 func New(url string) Redis {
 	var client *redis.Client
 	opt, err := redis.ParseURL(url)
+
+	opt.MaxActiveConns = 10 // free tier offers 30, so this allows 3 users to use the app concurrently
+
 	if err == nil {
 		client = redis.NewClient(opt)
 	}
@@ -73,6 +76,28 @@ func (r Redis) GetBatch(keys []string) (map[string]CacheResponse, error) {
 	}
 
 	return res, nil
+}
+
+func (r Redis) SetBatch(keys []string, colors [][]string, counts [][]int) error {
+	if len(keys) != len(colors) || len(keys) != len(counts) || len(colors) != len(counts) {
+		return fmt.Errorf("length of keys, colors, and counts do not match")
+	}
+
+	kv := []any{}
+	for i, col := range colors {
+		val, err := r.parseRedisIn(col, counts[i])
+		if err != nil {
+			return fmt.Errorf("error parsing redis input: %w", err)
+		}
+		kv = append(kv, keys[i], val)
+	}
+
+	// TODO - WRAP THIS IN A TRANSACTION, TO ENSURE EITHER ALL IS SET OR NONE (NO PARTIAL SETS)
+	resInt := r.client.MSet(context.TODO(), kv...)
+	if resInt.Err() != nil || resInt.Val() == "" {
+		return fmt.Errorf("error batch-setting to redis: %w", resInt.Err()) // If logs show nil err, then val == ""
+	}
+	return nil
 }
 
 // Gets a value from redis given a key. If the key is stale, cacheHit is returned as false
