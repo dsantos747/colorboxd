@@ -18,6 +18,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 
+	"github.com/dsantos747/letterboxd_hue_sort/backend/postgres"
 	"github.com/dsantos747/letterboxd_hue_sort/backend/redis"
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
@@ -28,6 +29,7 @@ import (
 )
 
 var rc redis.Redis
+var pg *postgres.PGservice
 
 // HTTPSortListById is the serverless function for computing the color information of each movie poster in
 // a user's Letterboxd list and consequently computing the different sort rankings.
@@ -45,6 +47,25 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rc = redis.New(os.Getenv("REDIS_URL"))
+
+	pg, err := postgres.New(l, os.Getenv("POSTGRES_URL"))
+	if err != nil {
+		l.Error("failed to connect to postgres", "err", err)
+		ReturnError(w, "failed to connect to postgres", http.StatusInternalServerError)
+		return
+	}
+
+	wg := sync.WaitGroup{}
+	defer func() {
+		wg.Wait()
+		pg.Pool.Close()
+	}()
+
+	wg.Add(1) // Evict old cache - ensure serverless function isn't blocked but also doesn't cut this short
+	go func() {
+		bgCtx := context.Background()
+		pg.EvictOldCache(bgCtx)
+	}()
 
 	// Set necessary headers for CORS and cache policy
 	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
@@ -222,9 +243,9 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 		keys = append(keys, entry.CacheKey)
 	}
 
-	res, err := rc.GetBatch(keys)
+	res, err := pg.GetCacheBatch(ctx, keys)
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup keys in redis: %w", err)
+		return nil, fmt.Errorf("failed to lookup keys in postgres: %w", err)
 	}
 
 	// We pass through and append all cache hits
@@ -233,8 +254,14 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 		entry := e
 
 		// Append entries fetched from cache
-		if res[entry.CacheKey].Hit {
-			entry.ImageInfo.Colors = parseColors(res[entry.CacheKey].Colors, res[entry.CacheKey].Counts)
+		if val, ok := res[entry.CacheKey]; ok {
+			// TODO, make a parseColorsv2 which takes a postgres.CacheEntry type and popualtes the entry
+			//
+			//
+			//
+			//
+			//
+			entry.ImageInfo.Colors = parseColorsV2(val)
 			entries = append(entries, entry)
 			continue
 		}
