@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	// Accepted image formats in loadImage
 	_ "image/jpeg"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/dsantos747/letterboxd_hue_sort/backend/postgres"
 	"github.com/dsantos747/letterboxd_hue_sort/backend/redis"
+	"github.com/jackc/pgx/v5"
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/disintegration/imaging"
@@ -39,6 +41,8 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 
 	l := slog.Default()
 
+	l.Info("starting")
+
 	// Read env variables
 	err = LoadEnv()
 	if err != nil {
@@ -48,7 +52,7 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 
 	rc = redis.New(os.Getenv("REDIS_URL"))
 
-	pg, err := postgres.New(l, os.Getenv("POSTGRES_URL"))
+	pg, err = postgres.New(l, os.Getenv("POSTGRES_URL"))
 	if err != nil {
 		l.Error("failed to connect to postgres", "err", err)
 		ReturnError(w, "failed to connect to postgres", http.StatusInternalServerError)
@@ -58,13 +62,14 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	wg := sync.WaitGroup{}
 	defer func() {
 		wg.Wait()
-		pg.Pool.Close()
+		pg.Conn.Close(ctx)
 	}()
 
 	wg.Add(1) // Evict old cache - ensure serverless function isn't blocked but also doesn't cut this short
 	go func() {
 		bgCtx := context.Background()
 		pg.EvictOldCache(bgCtx)
+		wg.Done()
 	}()
 
 	// Set necessary headers for CORS and cache policy
@@ -86,6 +91,8 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	t0 := time.Now()
+
 	// Get Entries from List
 	listEntries, err := getListEntries(ctx, accessToken, listId)
 	if err != nil {
@@ -94,12 +101,16 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entriesWithImageInfo, err := processListImagesV3(ctx, listEntries)
+	t1 := time.Now()
+
+	entriesWithImageInfo, err := processListImagesV3(ctx, l, listEntries)
 	if err != nil {
 		l.Error("failed to process posters for list entries", "err", err)
 		ReturnError(w, "failed to process posters for list entries", http.StatusInternalServerError)
 		return
 	}
+
+	t2 := time.Now()
 
 	entriesWithRanking, err := assignListRankings(entriesWithImageInfo)
 	if err != nil {
@@ -116,9 +127,13 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 		"items": *entriesWithRanking,
 	}
 
+	l.Info("times", "getEntries", t1.Sub(t0), "processImages", t2.Sub(t1))
+
 	// Return response to client
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+
+	time.Sleep(2 * time.Second) // Sleep for 2 seconds to ensure the cache is updated
 }
 
 func getFilmCount(token, id string) (int, error) {
@@ -236,7 +251,7 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 	return &entries, nil
 }
 
-func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, error) {
+func processListImagesV3(ctx context.Context, l *slog.Logger, listEntries *[]Entry) (*[]Entry, error) {
 	// First we query Redis
 	keys := []string{}
 	for _, entry := range *listEntries {
@@ -255,15 +270,12 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 
 		// Append entries fetched from cache
 		if val, ok := res[entry.CacheKey]; ok {
-			// TODO, make a parseColorsv2 which takes a postgres.CacheEntry type and popualtes the entry
-			//
-			//
-			//
-			//
-			//
-			entry.ImageInfo.Colors = parseColorsV2(val)
-			entries = append(entries, entry)
-			continue
+			entry.ImageInfo.Colors, err = parseColorsV2(val)
+			if err == nil {
+				entries = append(entries, entry)
+				continue
+			}
+			l.Warn("failed to parse colors from cache entry", "err", err)
 		}
 
 		entriesToLoad = append(entriesToLoad, entry)
@@ -271,14 +283,17 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 
 	// Then we go through the process of fetch images that we are missing
 	errGroup, ctx := errgroup.WithContext(ctx)
-	rl := ratelimit.New(500)
+	rl := ratelimit.New(100)
 	mu := sync.Mutex{}
 	rlCtx, rlCancel := context.WithCancel(ctx) // This is a hack to cancel all goroutines if we get rate-limited when loading images
+	defer rlCancel()
 
 	var c_keys []string
 	var c_colors [][]string
 	var c_counts [][]int
 	for _, e := range entriesToLoad {
+		e := e
+
 		// Process any entries not available in cache
 		errGroup.Go(func() error {
 			rl.Take()
@@ -324,7 +339,29 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 	egErr := errGroup.Wait()
 	if len(keys) > 0 { // Even if we fail to process all, set to cache what we did manage
 		go func() {
-			rc.SetBatch(c_keys, c_colors, c_counts)
+
+			limit := 9360 // we limit how many entries we insert because limit on parameters
+
+			cacheCtx := context.Background()
+			cacheEntries := make([]postgres.CacheEntry, limit)
+			for i, k := range c_keys {
+				if i == limit {
+					break
+				}
+				cacheEntries[i] = postgres.CacheEntry{
+					ID:     k,
+					Color1: c_colors[i][0],
+					Color2: c_colors[i][1],
+					Color3: c_colors[i][2],
+					Value1: c_counts[i][0],
+					Value2: c_counts[i][1],
+					Value3: c_counts[i][2],
+				}
+			}
+			err := pg.InsertCacheBatch(cacheCtx, cacheEntries)
+			if err != nil {
+				l.Warn("failed to insert cache batch to postgres", "err", err)
+			}
 		}()
 	}
 	if egErr != nil { // Then handle the error
@@ -335,7 +372,7 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 }
 
 // This v2 method bypasses the whole worker pattern and just uses a good old errgroup. NEEDS TO BE TESTED
-func processListImagesV2(listEntries *[]Entry) (*[]Entry, error) {
+func processListImagesV2(l *slog.Logger, listEntries *[]Entry) (*[]Entry, error) {
 	var entries []Entry
 
 	ctx := context.Background() // Hack for now
@@ -344,38 +381,55 @@ func processListImagesV2(listEntries *[]Entry) (*[]Entry, error) {
 
 	for _, e := range *listEntries {
 		errGroup.Go(func() error {
+			e := e
 
-			res, err := rc.Get(e.CacheKey)
+			res, err := pg.GetCacheEntry(ctx, e.CacheKey)
+			if err == nil { // cache hit
+				var err2 error
+				e.ImageInfo.Colors, err2 = parseColorsV2(*res)
+				if err2 == nil {
+					entries = append(entries, e)
+					return nil
+				}
+				l.Warn("failed to parse colors from cache entry", "err", err2)
+			}
+
+			if err != nil && err != pgx.ErrNoRows { // actual error
+				return fmt.Errorf("failed to lookup keys in postgres: %w", err)
+			}
+
+			// cache miss
+			img, err := loadImage(e.ImageInfo.Path)
 			if err != nil {
-				return fmt.Errorf("failed to fetch from redis: %w", err)
+				return fmt.Errorf("error loading image %s: %v", e.ImageInfo.Path, err)
 			}
 
-			if res.Hit {
-				entry := e
-				entry.ImageInfo.Colors = parseColors(res.Colors, res.Counts)
-				entries = append(entries, entry)
-			} else {
-				img, err := loadImage(e.ImageInfo.Path)
-				if err != nil {
-					return fmt.Errorf("error loading image %s: %v", e.ImageInfo.Path, err)
-				}
-
-				entry, err := getImageInfo(e, img)
-				if err != nil {
-					return fmt.Errorf("error getting image color info for poster for %s: %v", entry.Name, err)
-				}
-
-				go func() {
-					colors, counts := []string{}, []int{}
-					for _, c := range entry.ImageInfo.Colors {
-						colors = append(colors, c.hex)
-						counts = append(counts, c.count)
-					}
-					rc.Set(entry.CacheKey, colors, counts)
-				}()
-
-				entries = append(entries, *entry)
+			entry, err := getImageInfo(e, img)
+			if err != nil {
+				return fmt.Errorf("error getting image color info for poster for %s: %v", entry.Name, err)
 			}
+
+			go func() {
+				colors, counts := []string{}, []int{}
+				for _, c := range entry.ImageInfo.Colors {
+					colors = append(colors, c.hex)
+					counts = append(counts, c.count)
+				}
+				rc.Set(entry.CacheKey, colors, counts)
+
+				cacheCtx := context.Background()
+				pg.InsertCacheEntry(cacheCtx, postgres.CacheEntry{
+					ID:     entry.CacheKey,
+					Color1: entry.ImageInfo.Colors[0].hex,
+					Color2: entry.ImageInfo.Colors[1].hex,
+					Color3: entry.ImageInfo.Colors[2].hex,
+					Value1: entry.ImageInfo.Colors[0].count,
+					Value2: entry.ImageInfo.Colors[1].count,
+					Value3: entry.ImageInfo.Colors[2].count,
+				})
+			}()
+
+			entries = append(entries, *entry)
 			return nil
 		})
 	}
@@ -428,44 +482,51 @@ func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, 
 		// Here need to first check redis cache for image info
 		entry := &image.info
 
-		res, err := rc.Get(image.info.CacheKey)
-		if err != nil {
-			errChan <- fmt.Errorf("failed to fetch from redis: %w", err)
+		res, err := pg.GetCacheEntry(context.Background(), image.info.CacheKey)
+		if err == nil { // cache hit
+			var err2 error
+			entry.ImageInfo.Colors, err2 = parseColorsV2(*res)
+			if err2 == nil {
+				colorChan <- *entry
+				wg.Done()
+				continue
+			}
+			errChan <- fmt.Errorf("error parsing colors from cache entry: %w", err2)
+		}
+
+		if err != nil && err != pgx.ErrNoRows { // actual error
+			errChan <- fmt.Errorf("failed to fetch from postgres: %w", err)
 			continue
 		}
 
-		if res.Hit {
-			entry.ImageInfo.Colors = parseColors(res.Colors, res.Counts)
-		} else {
-			// Fetch image and process
-			img, err := loadImage(image.info.ImageInfo.Path)
-			if err != nil {
-				errChan <- fmt.Errorf("error loading image %s: %v", image.info.ImageInfo.Path, err)
-				wg.Done()
-				continue
-			}
-
-			image.img = img
-
-			entry, err = getImageInfo(image.info, image.img)
-			if err != nil {
-				errChan <- fmt.Errorf("error getting image color info for poster for %s: %v", image.info.Name, err)
-				wg.Done()
-				continue
-			}
-
-			// Set to redis
-			// todo, NEED to ensure that the key we are using is the id of the film poster - not the id of the film itself
-			// The letterboxd api has a posterPickerUrl, which is to do with the custom poster chosen in a list. Could we use this?
-			// Maybe, check if that field is empty or not when the poster is standard, that could be useful
-			// Once you have the api key back, can use that to make some postman calls and check
-			colors, counts := []string{}, []int{}
-			for _, c := range entry.ImageInfo.Colors {
-				colors = append(colors, c.hex)
-				counts = append(counts, c.count)
-			}
-			rc.Set(image.info.CacheKey, colors, counts)
+		// Fetch image and process
+		img, err := loadImage(image.info.ImageInfo.Path)
+		if err != nil {
+			errChan <- fmt.Errorf("error loading image %s: %v", image.info.ImageInfo.Path, err)
+			wg.Done()
+			continue
 		}
+
+		image.img = img
+
+		entry, err = getImageInfo(image.info, image.img)
+		if err != nil {
+			errChan <- fmt.Errorf("error getting image color info for poster for %s: %v", image.info.Name, err)
+			wg.Done()
+			continue
+		}
+
+		// Set to redis
+		// todo, NEED to ensure that the key we are using is the id of the film poster - not the id of the film itself
+		// The letterboxd api has a posterPickerUrl, which is to do with the custom poster chosen in a list. Could we use this?
+		// Maybe, check if that field is empty or not when the poster is standard, that could be useful
+		// Once you have the api key back, can use that to make some postman calls and check
+		colors, counts := []string{}, []int{}
+		for _, c := range entry.ImageInfo.Colors {
+			colors = append(colors, c.hex)
+			counts = append(counts, c.count)
+		}
+		rc.Set(image.info.CacheKey, colors, counts)
 
 		colorChan <- *entry
 		wg.Done()
@@ -567,4 +628,57 @@ func parseColors(hexes []string, counts []int) []Color {
 	}
 
 	return colors
+}
+
+func parseColorsV2(c postgres.CacheEntry) ([]Color, error) {
+	rgb1, err := colorful.Hex(c.Color1)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing hex 1 to rgb: %w", err)
+	}
+	h1, s1, l1 := rgb1.Hsl()
+	_, _, v1 := rgb1.Hsv()
+
+	rgb2, err := colorful.Hex(c.Color2)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing hex 2 to rgb: %w", err)
+	}
+	h2, s2, l2 := rgb2.Hsl()
+	_, _, v2 := rgb2.Hsv()
+
+	rgb3, err := colorful.Hex(c.Color3)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing hex 3 to rgb: %w", err)
+	}
+	h3, s3, l3 := rgb3.Hsl()
+	_, _, v3 := rgb3.Hsv()
+
+	return []Color{
+		{
+			rgb:   rgb1,
+			hex:   c.Color1,
+			h:     h1,
+			s:     s1,
+			l:     l1,
+			v:     v1,
+			count: c.Value1,
+		},
+		{
+			rgb:   rgb2,
+			hex:   c.Color2,
+			h:     h2,
+			s:     s2,
+			l:     l2,
+			v:     v2,
+			count: c.Value2,
+		},
+		{
+			rgb:   rgb3,
+			hex:   c.Color3,
+			h:     h3,
+			s:     s3,
+			l:     l3,
+			v:     v3,
+			count: c.Value3,
+		},
+	}, nil
 }

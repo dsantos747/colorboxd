@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 )
 
 // CacheEntry represents a cache record
@@ -25,21 +25,28 @@ type CacheEntry struct {
 
 type PGservice struct {
 	l    *slog.Logger
-	Pool *pgxpool.Pool
+	Conn *pgx.Conn
 }
 
 // Connect to Neon Postgres
 func New(l *slog.Logger, url string) (*PGservice, error) {
-	pool, err := pgxpool.New(context.Background(), url)
+	conn, err := pgx.Connect(context.Background(), url)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
-	return &PGservice{l, pool}, nil
+
+	// Ping the database to ensure the connection is active
+	if err := conn.Ping(context.Background()); err != nil {
+		conn.Close(context.Background())
+		return nil, fmt.Errorf("unable to ping database: %w", err)
+	}
+
+	return &PGservice{l, conn}, nil
 }
 
 // Insert a new cache entry
 func (s PGservice) InsertCacheEntry(ctx context.Context, entry CacheEntry) error {
-	_, err := s.Pool.Exec(ctx, `
+	_, err := s.Conn.Exec(ctx, `
 		INSERT INTO colors_cache (poster_id, color1, color2, color3, value1, value2, value3, last_accessed, created_at) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())
 		ON CONFLICT (poster_id) DO UPDATE 
@@ -53,7 +60,7 @@ func (s PGservice) InsertCacheEntry(ctx context.Context, entry CacheEntry) error
 // Retrieve a cache entry and update `last_accessed`
 func (s PGservice) GetCacheEntry(ctx context.Context, id string) (*CacheEntry, error) {
 	var entry CacheEntry
-	err := s.Pool.QueryRow(ctx, `
+	err := s.Conn.QueryRow(ctx, `
 		UPDATE colors_cache SET last_accessed = now()
 		WHERE poster_id = $1
 		RETURNING poster_id, color1, color2, color3, value1, value2, value3, last_accessed, created_at
@@ -94,7 +101,7 @@ func (s PGservice) InsertCacheBatch(ctx context.Context, entries []CacheEntry) e
 
 	// Final query
 	query := fmt.Sprintf(sql, strings.Join(values, ","))
-	_, err := s.Pool.Exec(ctx, query, args...)
+	_, err := s.Conn.Exec(ctx, query, args...)
 	return err
 }
 func (s PGservice) GetCacheBatch(ctx context.Context, ids []string) (map[string]CacheEntry, error) {
@@ -117,7 +124,7 @@ func (s PGservice) GetCacheBatch(ctx context.Context, ids []string) (map[string]
 		RETURNING poster_id, color1, color2, color3, value1, value2, value3, last_accessed, created_at;
 	`, strings.Join(placeholders, ","))
 
-	rows, err := s.Pool.Query(ctx, query, args...)
+	rows, err := s.Conn.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +150,7 @@ func (s PGservice) GetCacheBatch(ctx context.Context, ids []string) (map[string]
 
 // Manually trigger LRU eviction (optional)
 func (s PGservice) EvictOldCache(ctx context.Context) {
-	rows, err := s.Pool.Exec(ctx, `
+	rows, err := s.Conn.Exec(ctx, `
 		DELETE FROM colors_cache WHERE poster_id IN (
 			SELECT poster_id FROM colors_cache ORDER BY last_accessed ASC OFFSET 1000
 		);
