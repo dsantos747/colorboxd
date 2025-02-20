@@ -11,14 +11,15 @@ import { ClearListCache, GetLists, SortList } from '../actions/actions';
 import { ArrowPathIcon } from '@heroicons/react/16/solid';
 
 const minListLength = 20;
-const listTooShortMessages = [
+const maxListLength = 3000;
+const invalidListMessages = [
   "Don't waste my time...",
   'You call that a list?',
   'You can sort that yourself!',
   `Give me at least ${minListLength} films.`,
-  `Give me at least ${minListLength} films.`,
+  `Give me up to ${maxListLength} films.`,
 ] as const;
-type listTypes = (typeof listTooShortMessages)[number];
+type listTypes = (typeof invalidListMessages)[number];
 
 type Props = {
   readonly setError: Dispatch<SetStateAction<string | null>>;
@@ -65,7 +66,11 @@ function ListMenu({ setError, loading, setLoading }: Props) {
 
       if (chosenListIndex !== undefined && userToken && listSummary) {
         if (listSummary[chosenListIndex].filmCount < minListLength) {
-          setListLengthMessage(listTooShortMessages[Math.floor(Math.random() * listTooShortMessages.length)]);
+          setListLengthMessage(invalidListMessages[Math.floor(Math.random() * (invalidListMessages.length - 1))]);
+          return;
+        }
+        if (listSummary[chosenListIndex].filmCount > maxListLength) {
+          setListLengthMessage(invalidListMessages[invalidListMessages.length - 1]);
           return;
         }
         setLoading(true);
@@ -159,7 +164,7 @@ function ListMenu({ setError, loading, setLoading }: Props) {
           <button
             type='submit'
             disabled={loading}
-            className='enabled:hover:text-teal-400 enabled:hover:translate-x-0.5 transition-all disabled:text-gray-500 font-semibold border-b-[1px] border-indigo-500'>
+            className={`enabled:hover:text-teal-400 enabled:hover:translate-x-0.5 transition-all disabled:text-gray-500 font-semibold border-b-[1px] border-indigo-500 ${loading ? 'animate-pulse' : ''}`}>
             {loading ? 'Please wait...' : "Let's Sort!"}
           </button>
           <p className='text-xs text-red-400 absolute'>{listLengthMessage}</p>

@@ -219,6 +219,9 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 	var adultUrl, imgPath string
 	for i, item := range listEntriesData {
 		adultUrl = ""
+		if len(item.Film.Poster.Sizes) == 0 {
+			return nil, fmt.Errorf(`sorry, one of your films "%s" doesn't seem to have a poster`, item.Film.Name)
+		}
 		imgPath = item.Film.Poster.Sizes[0].URL
 		if item.Film.Adult {
 			adultUrl = item.Film.AdultPoster.Sizes[0].URL
@@ -283,7 +286,7 @@ func processListImagesV3(ctx context.Context, l *slog.Logger, listEntries *[]Ent
 
 	// Then we go through the process of fetch images that we are missing
 	errGroup, ctx := errgroup.WithContext(ctx)
-	rl := ratelimit.New(100)
+	rl := ratelimit.New(50)
 	mu := sync.Mutex{}
 	rlCtx, rlCancel := context.WithCancel(ctx) // This is a hack to cancel all goroutines if we get rate-limited when loading images
 	defer rlCancel()
@@ -339,29 +342,34 @@ func processListImagesV3(ctx context.Context, l *slog.Logger, listEntries *[]Ent
 	egErr := errGroup.Wait()
 	if len(keys) > 0 { // Even if we fail to process all, set to cache what we did manage
 		go func() {
+			batchSize := 4000
+			for i := 0; i < len(c_keys); i += batchSize {
+				// TODO: do it in a few smaller batches so that if it fails we at least get some in
+				// Also, need to modify pg client to ensure there are three colors and counts (it's failing the regex)
+				// Or, we allow the field to be null
 
-			limit := 9360 // we limit how many entries we insert because limit on parameters
-
-			cacheCtx := context.Background()
-			cacheEntries := make([]postgres.CacheEntry, limit)
-			for i, k := range c_keys {
-				if i == limit {
-					break
+				cacheCtx := context.Background()
+				cacheEntries := []postgres.CacheEntry{}
+				for j, k := range c_keys[i:min(i+batchSize, len(c_keys))] {
+					if !checkValidCacheEntry(c_colors[j]) { // easy hack for now - skip invalid entries
+						continue
+					}
+					cacheEntries = append(cacheEntries, postgres.CacheEntry{
+						ID:     k,
+						Color1: c_colors[j][0],
+						Color2: c_colors[j][1],
+						Color3: c_colors[j][2],
+						Value1: c_counts[j][0],
+						Value2: c_counts[j][1],
+						Value3: c_counts[j][2],
+					})
 				}
-				cacheEntries[i] = postgres.CacheEntry{
-					ID:     k,
-					Color1: c_colors[i][0],
-					Color2: c_colors[i][1],
-					Color3: c_colors[i][2],
-					Value1: c_counts[i][0],
-					Value2: c_counts[i][1],
-					Value3: c_counts[i][2],
+				err := pg.InsertCacheBatch(cacheCtx, cacheEntries)
+				if err != nil {
+					l.Warn("failed to insert cache batch to postgres", "error", err)
 				}
 			}
-			err := pg.InsertCacheBatch(cacheCtx, cacheEntries)
-			if err != nil {
-				l.Warn("failed to insert cache batch to postgres", "err", err)
-			}
+
 		}()
 	}
 	if egErr != nil { // Then handle the error
@@ -369,6 +377,15 @@ func processListImagesV3(ctx context.Context, l *slog.Logger, listEntries *[]Ent
 	}
 
 	return &entries, nil
+}
+
+func checkValidCacheEntry(colors []string) bool {
+	for _, c := range colors {
+		if len(c) != 7 && c[0] != '#' {
+			return false
+		}
+	}
+	return true
 }
 
 // This v2 method bypasses the whole worker pattern and just uses a good old errgroup. NEEDS TO BE TESTED

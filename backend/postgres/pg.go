@@ -152,7 +152,7 @@ func (s PGservice) GetCacheBatch(ctx context.Context, ids []string) (map[string]
 func (s PGservice) EvictOldCache(ctx context.Context) {
 	rows, err := s.Conn.Exec(ctx, `
 		DELETE FROM colors_cache WHERE poster_id IN (
-			SELECT poster_id FROM colors_cache ORDER BY last_accessed ASC OFFSET 1000
+			SELECT poster_id FROM colors_cache ORDER BY last_accessed ASC OFFSET 20000
 		);
 	`)
 	if err != nil {
