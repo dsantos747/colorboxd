@@ -1,8 +1,7 @@
 name: CI Tests
 on:
   push:
-    branches:
-      - main
+    branches: ["**"]
 jobs:
   frontendTest:
     runs-on: ubuntu-latest
@@ -80,7 +79,7 @@ jobs:
       - name: Run Backend Tests
         run: |
           cd backend
-          go test -coverprofile=cover.out
+          go test ./... -coverprofile=cover.out
 
       - name: Report coverage results to DeepSource
         run: |

@@ -301,10 +301,12 @@ func processListImagesV3(ctx context.Context, listEntries []Entry) ([]Entry, err
 }
 
 // This v2 method bypasses the whole worker pattern and just uses a good old errgroup. NEEDS TO BE TESTED
-func processListImagesV2(listEntries []Entry) ([]Entry, error) {
+func processListImagesV2(ctx context.Context, listEntries []Entry) ([]Entry, error) {
 	var entries []Entry
 
-	ctx := context.Background() // Hack for now
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	errGroup, ctx := errgroup.WithContext(ctx)
 
