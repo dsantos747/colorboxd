@@ -11,13 +11,6 @@ import (
 func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// Read env variables
-	err = LoadEnv()
-	if err != nil {
-		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-		return
-	}
-
 	// Set necessary headers for CORS and cache policy
 	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -49,7 +42,7 @@ func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(userLists)
 }
 
-func getUserLists(token, id string) (*[]ListSummary, error) {
+func getUserLists(token, id string) ([]ListSummary, error) {
 	method := "GET"
 	endpoint := fmt.Sprintf("%s/lists", os.Getenv("LBOXD_BASEURL"))
 	query := fmt.Sprintf("?member=%s&memberRelationship=Owner&perPage=100", id)
@@ -70,5 +63,5 @@ func getUserLists(token, id string) (*[]ListSummary, error) {
 
 	var lists = responseData.Items
 
-	return &lists, nil
+	return lists, nil
 }

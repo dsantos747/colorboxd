@@ -33,16 +33,9 @@ var rc redis.Redis
 // a user's Letterboxd list and consequently computing the different sort rankings.
 func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	var err error
-	ctx := context.Background() // Hack for now
+	ctx := r.Context()
 
 	l := slog.Default()
-
-	// Read env variables
-	err = LoadEnv()
-	if err != nil {
-		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-		return
-	}
 
 	rc = redis.New(os.Getenv("REDIS_URL"))
 
@@ -87,12 +80,12 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slices.SortFunc[[]Entry](*entriesWithRanking, func(a, b Entry) int {
+	slices.SortFunc[[]Entry](entriesWithRanking, func(a, b Entry) int {
 		return cmp.Compare[int](AlgoHue(a.ImageInfo.Colors), AlgoHue(b.ImageInfo.Colors))
 	})
 
 	response := map[string][]Entry{
-		"items": *entriesWithRanking,
+		"items": entriesWithRanking,
 	}
 
 	// Return response to client
@@ -120,7 +113,7 @@ func getFilmCount(token, id string) (int, error) {
 }
 
 // For a given list id, returns a slice of each entry in the list
-func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
+func getListEntries(ctx context.Context, token, id string) ([]Entry, error) {
 	method := "GET"
 	endpoint := fmt.Sprintf("%s/list/%s/entries", os.Getenv("LBOXD_BASEURL"), id)
 	headers := map[string]string{"Authorization": fmt.Sprintf("Bearer %s", token)}
@@ -212,13 +205,13 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 		}
 	}
 
-	return &entries, nil
+	return entries, nil
 }
 
-func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, error) {
+func processListImagesV3(ctx context.Context, listEntries []Entry) ([]Entry, error) {
 	// First we query Redis
 	keys := []string{}
-	for _, entry := range *listEntries {
+	for _, entry := range listEntries {
 		keys = append(keys, entry.CacheKey)
 	}
 
@@ -229,7 +222,7 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 
 	// We pass through and append all cache hits
 	var entries, entriesToLoad []Entry
-	for _, e := range *listEntries {
+	for _, e := range listEntries {
 		entry := e
 
 		// Append entries fetched from cache
@@ -304,18 +297,20 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 		return nil, egErr
 	}
 
-	return &entries, nil
+	return entries, nil
 }
 
 // This v2 method bypasses the whole worker pattern and just uses a good old errgroup. NEEDS TO BE TESTED
-func processListImagesV2(listEntries *[]Entry) (*[]Entry, error) {
+func processListImagesV2(ctx context.Context, listEntries []Entry) ([]Entry, error) {
 	var entries []Entry
 
-	ctx := context.Background() // Hack for now
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	errGroup, ctx := errgroup.WithContext(ctx)
 
-	for _, e := range *listEntries {
+	for _, e := range listEntries {
 		errGroup.Go(func() error {
 
 			res, err := rc.Get(e.CacheKey)
@@ -357,14 +352,14 @@ func processListImagesV2(listEntries *[]Entry) (*[]Entry, error) {
 		return nil, err
 	}
 
-	return &entries, nil
+	return entries, nil
 }
 
 // For a slice of entries, this creates some goroutines which download the poster and extract colour
 // information for each film. workerCount can be used to adjust the amount of goroutines.
-func processListImages(listEntries *[]Entry) (*[]Entry, error) {
+func processListImages(listEntries []Entry) ([]Entry, error) {
 	var entrySlice []Entry
-	n := len(*listEntries)
+	n := len(listEntries)
 
 	var wg sync.WaitGroup
 	imageChan := make(chan Image, n)
@@ -376,7 +371,7 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 		go worker(imageChan, colorChan, &wg, errChan)
 	}
 
-	for _, entry := range *listEntries {
+	for _, entry := range listEntries {
 		wg.Add(1)
 		imageChan <- Image{info: entry}
 	}
@@ -391,7 +386,7 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 		entrySlice = append(entrySlice, entry)
 	}
 
-	return &entrySlice, nil
+	return entrySlice, nil
 }
 
 // This worker (pool size limited by workerCount) listens on imageChan, downloads the image and
@@ -477,7 +472,7 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 	var currColor Color
 	var colors []Color
 
-	for _, c := range *domColors {
+	for _, c := range domColors {
 		hex := "#" + c.AsString()
 		rgb, _ := colorful.Hex(hex) // This feels a bit backwards, going from rgb to hex to rgb
 		hue, sat, lum := rgb.Hsl()
@@ -492,7 +487,7 @@ func getImageInfo(entry Entry, img image.Image) (*Entry, error) {
 }
 
 // Run the k-means method to extract the top 3 dominant colours from a poster
-func getDominantColors(k, method int, img image.Image) (*[]prominentcolor.ColorItem, error) {
+func getDominantColors(k, method int, img image.Image) ([]prominentcolor.ColorItem, error) {
 	resizeSize := uint(1000) // larger to prevent re-resizing (we've already resized)
 	// resizeSize := uint(prominentcolor.DefaultSize)
 
@@ -508,20 +503,20 @@ func getDominantColors(k, method int, img image.Image) (*[]prominentcolor.ColorI
 		res = res[0:2]
 	}
 
-	return &res, nil
+	return res, nil
 }
 
 // This function calculates each poster's ranking according to each sort method (see sortAlgorithms file)
-func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
-	for i, e := range *listEntries {
-		(*listEntries)[i].SortVals.Hue = AlgoHue(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.Lum = AlgoLuminosity(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.InverseStep_8 = AlgoInverseStep(e.ImageInfo.Colors, 8)
-		(*listEntries)[i].SortVals.InverseStep_12 = AlgoInverseStep(e.ImageInfo.Colors, 12)
-		(*listEntries)[i].SortVals.InverseStep2_8 = AlgoInverseStepV2(e.ImageInfo.Colors, 8)
-		(*listEntries)[i].SortVals.InverseStep2_12 = AlgoInverseStepV2(e.ImageInfo.Colors, 12)
-		(*listEntries)[i].SortVals.BRBW1 = AlgoBRBW1(e.ImageInfo.Colors)
-		(*listEntries)[i].SortVals.BRBW2 = AlgoBRBW2(e.ImageInfo.Colors)
+func assignListRankings(listEntries []Entry) ([]Entry, error) {
+	for i, e := range listEntries {
+		listEntries[i].SortVals.Hue = AlgoHue(e.ImageInfo.Colors)
+		listEntries[i].SortVals.Lum = AlgoLuminosity(e.ImageInfo.Colors)
+		listEntries[i].SortVals.InverseStep_8 = AlgoInverseStep(e.ImageInfo.Colors, 8)
+		listEntries[i].SortVals.InverseStep_12 = AlgoInverseStep(e.ImageInfo.Colors, 12)
+		listEntries[i].SortVals.InverseStep2_8 = AlgoInverseStepV2(e.ImageInfo.Colors, 8)
+		listEntries[i].SortVals.InverseStep2_12 = AlgoInverseStepV2(e.ImageInfo.Colors, 12)
+		listEntries[i].SortVals.BRBW1 = AlgoBRBW1(e.ImageInfo.Colors)
+		listEntries[i].SortVals.BRBW2 = AlgoBRBW2(e.ImageInfo.Colors)
 	}
 
 	// where error handling?
