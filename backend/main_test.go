@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"context"
+
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/launcher"
@@ -15,7 +17,7 @@ import (
 var testToken string
 var testUserId string = "67W7X"
 var testListId string = "tqtA2"
-var testListEntries *[]Entry
+var testListEntries []Entry
 
 func TestLoadImage(t *testing.T) {
 	_, err := loadImage("https://www.colorhexa.com/ff0000.png")
@@ -130,7 +132,7 @@ func TestGetLists(t *testing.T) {
 		t.Errorf("could not retrieve lists from Letterboxd API: %v", err)
 	}
 
-	for _, l := range *userLists {
+	for _, l := range userLists {
 		if l.ID == testListId {
 			return
 		}
@@ -142,12 +144,13 @@ func TestGetLists(t *testing.T) {
 // the expected amount, fail test.
 func TestGetListEntries(t *testing.T) {
 	var err error
-	testListEntries, err = getListEntries(testToken, testListId)
+	ctx := context.Background()
+	testListEntries, err = getListEntries(ctx, testToken, testListId)
 	if err != nil {
 		t.Errorf("failed to retrieve entries from list: %v", err)
 	}
-	if len(*testListEntries) != 44 {
-		t.Errorf("retrieved list entries qty didn't match expected entries qty, expected 44, found %v", len(*testListEntries))
+	if len(testListEntries) != 44 {
+		t.Errorf("retrieved list entries qty didn't match expected entries qty, expected 44, found %v", len(testListEntries))
 	}
 }
 
@@ -159,7 +162,7 @@ func TestProcessListImages(t *testing.T) {
 		t.Errorf("failed to process posters for list entries: %v", err)
 		return
 	}
-	for _, entry := range *entriesWithImageInfo {
+	for _, entry := range entriesWithImageInfo {
 		if len(entry.ImageInfo.Colors) == 0 {
 			t.Errorf("0 colors found for poster for film: %s", entry.Name)
 			return

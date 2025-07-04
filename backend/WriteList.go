@@ -16,13 +16,6 @@ import (
 func HTTPWriteList(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	// Read env variables
-	err = LoadEnv()
-	if err != nil {
-		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
-		return
-	}
-
 	// Set necessary headers for CORS
 	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -138,7 +131,7 @@ func createListUpdateEntries(currentPositions map[string]int, finishPositions []
 }
 
 // Send request to Letterboxd endpoint to update list.
-func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[]string, error) {
+func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) ([]string, error) {
 
 	// Prepare endpoint and body for PATCH request
 	method := "PATCH"
@@ -166,10 +159,10 @@ func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[
 			message = append(message, fmt.Sprintf("%s: %s - %s", m.Type, m.Code, m.Title))
 		}
 		errorStr := "The letterboxd API responded with the following errors: " + strings.Join(message, "; ")
-		return &message, fmt.Errorf(errorStr)
+		return message, fmt.Errorf(errorStr)
 	}
 
 	message = []string{"List updated successfully"}
 
-	return &message, nil
+	return message, nil
 }
