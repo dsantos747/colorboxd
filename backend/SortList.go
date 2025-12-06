@@ -33,6 +33,12 @@ import (
 var rc redis.Redis
 var pg *postgres.PGservice
 
+var noPosterColors = []Color{ // Default color for entries with no poster - all black
+	{rgb: colorful.Color{R: 0, G: 0, B: 0}, hex: "#000000", h: 0, s: 0, l: 0, v: 0, count: 3000},
+	{rgb: colorful.Color{R: 0, G: 0, B: 0}, hex: "#000000", h: 0, s: 0, l: 0, v: 0, count: 2000},
+	{rgb: colorful.Color{R: 0, G: 0, B: 0}, hex: "#000000", h: 0, s: 0, l: 0, v: 0, count: 1000},
+}
+
 // HTTPSortListById is the serverless function for computing the color information of each movie poster in
 // a user's Letterboxd list and consequently computing the different sort rankings.
 func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
@@ -49,8 +55,6 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
 		return
 	}
-
-	rc = redis.New(os.Getenv("REDIS_URL"))
 
 	pg, err = postgres.New(l, os.Getenv("POSTGRES_URL"))
 	if err != nil {
@@ -97,7 +101,7 @@ func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
 	listEntries, err := getListEntries(ctx, accessToken, listId)
 	if err != nil {
 		l.Error("failed to retrieve entries from list", "err", err)
-		ReturnError(w, "failed to retrieve entries from list", http.StatusInternalServerError)
+		ReturnError(w, fmt.Sprintf("failed to retrieve entries from list: %s", err.Error()), http.StatusInternalServerError)
 		return
 	}
 
@@ -218,12 +222,25 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 	entries := make([]Entry, n)
 	var adultUrl, imgPath string
 	for i, item := range listEntriesData {
-		adultUrl = ""
-		if len(item.Film.Poster.Sizes) == 0 {
-			return nil, fmt.Errorf(`sorry, one of your films "%s" doesn't seem to have a poster`, item.Film.Name)
+
+		entries[i] = Entry{
+			EntryID:            item.EntryID,
+			FilmID:             item.Film.ID,
+			Name:               item.Film.Name,
+			ReleaseYear:        item.Film.ReleaseYear,
+			Adult:              item.Film.Adult,
+			PosterCustomisable: item.Film.PosterCustomisable,
 		}
+
+		if len(item.Film.Poster.Sizes) == 0 {
+			// if there's no poster, assign the default and continue
+			entries[i].ImageInfo.Colors = noPosterColors
+			continue
+		}
+
+		adultUrl = ""
 		imgPath = item.Film.Poster.Sizes[0].URL
-		if item.Film.Adult {
+		if item.Film.Adult && len(item.Film.AdultPoster.Sizes) != 0 {
 			adultUrl = item.Film.AdultPoster.Sizes[0].URL
 			imgPath = adultUrl
 		}
@@ -237,28 +254,23 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 			return nil, fmt.Errorf("failed to extract version from img url")
 		}
 
-		entries[i] = Entry{
-			EntryID:            item.EntryID,
-			FilmID:             item.Film.ID,
-			Name:               item.Film.Name,
-			ReleaseYear:        item.Film.ReleaseYear,
-			Adult:              item.Film.Adult,
-			PosterCustomisable: item.Film.PosterCustomisable,
-			PosterURL:          item.Film.Poster.Sizes[0].URL,
-			AdultPosterURL:     adultUrl,
-			CacheKey:           fmt.Sprintf("%s_%s", item.Film.ID, version), // underscore is important in key format
-			ImageInfo:          ImageInfo{Path: imgPath},
-		}
+		entries[i].PosterURL = imgPath
+		entries[i].AdultPosterURL = adultUrl
+		entries[i].CacheKey = fmt.Sprintf("%s_%s", item.Film.ID, version) // underscore is important in key format
+		entries[i].ImageInfo = ImageInfo{Path: imgPath}
+
 	}
 
 	return &entries, nil
 }
 
 func processListImagesV3(ctx context.Context, l *slog.Logger, listEntries *[]Entry) (*[]Entry, error) {
-	// First we query Redis
+	// First we query PG
 	keys := []string{}
 	for _, entry := range *listEntries {
-		keys = append(keys, entry.CacheKey)
+		if entry.CacheKey != "" {
+			keys = append(keys, entry.CacheKey)
+		}
 	}
 
 	res, err := pg.GetCacheBatch(ctx, keys)
@@ -266,10 +278,17 @@ func processListImagesV3(ctx context.Context, l *slog.Logger, listEntries *[]Ent
 		return nil, fmt.Errorf("failed to lookup keys in postgres: %w", err)
 	}
 
-	// We pass through and append all cache hits
+	// We pass through and append all cache hits, or any posters with no cache key / no poster
 	var entries, entriesToLoad []Entry
-	for _, e := range *listEntries {
-		entry := e
+	for _, entry := range *listEntries {
+		// Append entries that don't even have a poster
+		if entry.ImageInfo.Path == "" {
+			if len(entry.ImageInfo.Colors) == 0 {
+				entry.ImageInfo.Colors = noPosterColors // extra safety assignment
+			}
+			entries = append(entries, entry)
+			continue
+		}
 
 		// Append entries fetched from cache
 		if val, ok := res[entry.CacheKey]; ok {
