@@ -84,8 +84,9 @@ type imgSize struct {
 	Width  int    `json:"width"`
 }
 
-// This is the output format of GetListEntries
+// Entry is the output format of GetListEntries
 type Entry struct {
+	ListPosition       int    // position in the list - not returned by API
 	EntryID            string `json:"entryId"`
 	FilmID             string `json:"filmId"`
 	Name               string `json:"name"`

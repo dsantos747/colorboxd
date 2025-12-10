@@ -199,6 +199,7 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 		}
 
 		entries[i] = Entry{
+			ListPosition:       i,
 			EntryID:            item.EntryID,
 			FilmID:             item.Film.ID,
 			Name:               item.Film.Name,

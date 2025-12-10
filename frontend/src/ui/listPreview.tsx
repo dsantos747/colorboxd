@@ -58,7 +58,7 @@ export default function ListPreview({ setError }: Props) {
     setStartIndex(0);
     if (currSort.visible) {
       list?.entries.sort((a, b) => {
-        return Number(a.entryId) - Number(b.entryId);
+        return a.listPosition - b.listPosition;
       });
     } else {
       list?.entries.sort((a, b) => {

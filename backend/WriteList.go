@@ -8,7 +8,6 @@ import (
 	"os"
 	"reflect"
 	"slices"
-	"strconv"
 	"strings"
 )
 
@@ -91,16 +90,12 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 	var finishSlice []FilmTargetPosition
 
 	for i, entry := range list.Entries {
-		initPos, err := strconv.Atoi(entry.EntryID)
-		if err != nil {
-			return nil, err
-		}
 		endPos := ((i + n) - offset) % n
 		if reverse {
 			endPos = (n - endPos) % n
 		}
 
-		currentPositions[entry.FilmID] = initPos
+		currentPositions[entry.FilmID] = entry.ListPosition
 		finishSlice = append(finishSlice, FilmTargetPosition{entry.FilmID, endPos})
 	}
 

@@ -21,6 +21,7 @@ export interface List extends ListSummary {
 }
 
 export interface EntryWithImage {
+  listPosition: number;
   entryId: string;
   filmId: string;
   name: string;

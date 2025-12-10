@@ -1,6 +1,7 @@
 package colorboxd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -142,7 +143,7 @@ func TestGetLists(t *testing.T) {
 // the expected amount, fail test.
 func TestGetListEntries(t *testing.T) {
 	var err error
-	testListEntries, err = getListEntries(testToken, testListId)
+	testListEntries, err = getListEntries(context.Background(), testToken, testListId)
 	if err != nil {
 		t.Errorf("failed to retrieve entries from list: %v", err)
 	}
