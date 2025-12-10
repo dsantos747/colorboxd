@@ -1,6 +1,6 @@
 module github.com/dsantos747/letterboxd_hue_sort/backend
 
-go 1.22.0
+go 1.24.3
 
 require (
 	github.com/EdlinOrg/prominentcolor v1.0.0
