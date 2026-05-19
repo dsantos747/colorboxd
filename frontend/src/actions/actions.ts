@@ -1,8 +1,7 @@
 import Cookies from 'js-cookie';
 import { EntryWithImage, List, ListSummary, SortModeType, UserToken } from '../lib/definitions';
 
-const BACKEND_URL1 = process.env.REACT_APP_BACKEND_URL1;
-const BACKEND_URL2 = process.env.REACT_APP_BACKEND_URL2;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 async function GetAccessTokenAndUser(authCode: string, refresh = false): Promise<UserToken> {
   const cookieUserToken = Cookies.get('userToken');
@@ -14,7 +13,7 @@ async function GetAccessTokenAndUser(authCode: string, refresh = false): Promise
   const cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
   // Fetch access token from backend
-  const response = await fetch(`${BACKEND_URL1}AuthUser?authCode=${encodeURIComponent(authCode)}`, {
+  const response = await fetch(`${BACKEND_URL}/api/v1/auth?authCode=${encodeURIComponent(authCode)}`, {
     method: 'GET',
     cache: cacheMode,
     credentials: 'include',
@@ -37,7 +36,7 @@ async function GetAccessTokenAndUser(authCode: string, refresh = false): Promise
 async function GetLists(accessToken: string, userId: string, refresh = false): Promise<ListSummary[]> {
   const cacheMode: RequestCache = refresh ? 'reload' : 'default';
 
-  const response = await fetch(`${BACKEND_URL2}GetLists?accessToken=${encodeURIComponent(accessToken)}&userId=${userId}`, {
+  const response = await fetch(`${BACKEND_URL}/api/v1/lists?accessToken=${encodeURIComponent(accessToken)}&userId=${userId}`, {
     method: 'GET',
     cache: cacheMode,
     credentials: 'include',
@@ -65,7 +64,7 @@ function ClearListCache() {
 async function SortList(accessToken: string, listSummary: ListSummary, refresh = false): Promise<List> {
   const cacheMode: RequestCache = refresh || !listCache[listSummary.id] ? 'reload' : 'default';
 
-  const response = await fetch(`${BACKEND_URL1}SortList?accessToken=${encodeURIComponent(accessToken)}&listId=${listSummary.id}`, {
+  const response = await fetch(`${BACKEND_URL}/api/v1/sort?accessToken=${encodeURIComponent(accessToken)}&listId=${listSummary.id}`, {
     method: 'GET',
     cache: cacheMode,
     credentials: 'include',
@@ -103,7 +102,7 @@ async function WriteSortedList(
 
   const requestBody = { accessToken, list, offset, sortMethod, reverse };
 
-  const response = await fetch(`${BACKEND_URL2}WriteList`, {
+  const response = await fetch(`${BACKEND_URL}/api/v1/write`, {
     method: 'POST',
     cache: cacheMode,
     credentials: 'include',

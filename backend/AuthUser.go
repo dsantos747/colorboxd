@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// HTTPAuthUser is the serverless function for handling the autorisation of the users letterboxd account to the colorboxd app.
-func HTTPAuthUser(w http.ResponseWriter, r *http.Request) {
+// AuthUser handles the autorisation of the users letterboxd account to the colorboxd app.
+func AuthUser(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	// Read env variables
