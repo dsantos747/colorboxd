@@ -7,8 +7,8 @@ import (
 	"os"
 )
 
-// HTTPGetLists fetches basic metadata of a users letterboxd lists
-func HTTPGetLists(w http.ResponseWriter, r *http.Request) {
+// GetLists fetches basic metadata of a users letterboxd lists
+func GetLists(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	// Read env variables

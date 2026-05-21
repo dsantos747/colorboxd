@@ -29,9 +29,9 @@ import (
 
 var rc redis.Redis
 
-// HTTPSortListById is the serverless function for computing the color information of each movie poster in
-// a user's Letterboxd list and consequently computing the different sort rankings.
-func HTTPSortListById(w http.ResponseWriter, r *http.Request) {
+// SortListById computes the color information of each movie poster in
+// a user's Letterboxd list and consequently computes the different sort rankings.
+func SortListById(w http.ResponseWriter, r *http.Request) {
 	var err error
 	ctx := context.Background() // Hack for now
 
