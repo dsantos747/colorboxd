@@ -96,6 +96,7 @@ type Entry struct {
 	PosterURL          string `json:"posterUrl"`
 	AdultPosterURL     string `json:"adultPosterUrl"`
 	CacheKey           string // constructed from the filmID and the verson parameter in the poster url
+	MissingPoster      bool   `json:"missingPoster"` // true if letterboxd has no poster image available for this entry
 	ImageInfo          ImageInfo
 	SortVals           SortVals `json:"sorts"`
 	Hex1               string   `json:"hex1"`

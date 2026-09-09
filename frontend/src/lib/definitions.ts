@@ -18,6 +18,7 @@ export interface ListSummary {
 
 export interface List extends ListSummary {
   entries: EntryWithImage[];
+  missingPosterCount: number;
 }
 
 export interface EntryWithImage {
@@ -30,6 +31,7 @@ export interface EntryWithImage {
   posterCustomisable: boolean;
   posterUrl: string;
   adultPosterUrl: string;
+  missingPoster: boolean;
   ImageInfo: ImageInfo;
   sorts: SortRanks;
 }

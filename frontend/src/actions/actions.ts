@@ -84,6 +84,7 @@ async function SortList(accessToken: string, listSummary: ListSummary, refresh =
   const list: List = {
     ...listSummary,
     entries: entryListWithImages,
+    missingPosterCount: data.missingPosterCount ?? 0,
   };
 
   listCache[listSummary.id] = list;

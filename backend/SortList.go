@@ -88,12 +88,24 @@ func SortListById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slices.SortFunc[[]Entry](*entriesWithRanking, func(a, b Entry) int {
+	// Entries with no poster can't be ranked by colour - keep them aside so the user can sort the
+	// rest of the list, and tack them onto the end of the returned items.
+	var sortable, missingPoster []Entry
+	for _, e := range *entriesWithRanking {
+		if e.MissingPoster {
+			missingPoster = append(missingPoster, e)
+			continue
+		}
+		sortable = append(sortable, e)
+	}
+
+	slices.SortFunc[[]Entry](sortable, func(a, b Entry) int {
 		return cmp.Compare[int](AlgoHue(a.ImageInfo.Colors), AlgoHue(b.ImageInfo.Colors))
 	})
 
-	response := map[string][]Entry{
-		"items": *entriesWithRanking,
+	response := map[string]any{
+		"items":              append(sortable, missingPoster...),
+		"missingPosterCount": len(missingPoster),
 	}
 
 	// Return response to client
@@ -181,13 +193,40 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 	// Extract relevant info from each item into []Entry format
 	n := len(listEntriesData)
 	entries := make([]Entry, n)
-	var adultUrl, imgPath string
+	var adultUrl, imgPath, posterUrl string
 	for i, item := range listEntriesData {
+		posterUrl = ""
+		if len(item.Film.Poster.Sizes) > 0 {
+			posterUrl = item.Film.Poster.Sizes[0].URL
+		}
+
 		adultUrl = ""
-		imgPath = item.Film.Poster.Sizes[0].URL
+		imgPath = posterUrl
 		if item.Film.Adult {
-			adultUrl = item.Film.AdultPoster.Sizes[0].URL
+			adultUrl = ""
+			if len(item.Film.AdultPoster.Sizes) > 0 {
+				adultUrl = item.Film.AdultPoster.Sizes[0].URL
+			}
 			imgPath = adultUrl
+		}
+
+		// Letterboxd sometimes has no poster image for a title at all. We can't compute colour
+		// info for these, so mark them and let the caller decide how to handle them (e.g. leave
+		// them out of the sort, and let the client re-append them once the rest has been sorted).
+		if imgPath == "" {
+			entries[i] = Entry{
+				ListPosition:       i,
+				EntryID:            item.EntryID,
+				FilmID:             item.Film.ID,
+				Name:               item.Film.Name,
+				ReleaseYear:        item.Film.ReleaseYear,
+				Adult:              item.Film.Adult,
+				PosterCustomisable: item.Film.PosterCustomisable,
+				PosterURL:          posterUrl,
+				AdultPosterURL:     adultUrl,
+				MissingPoster:      true,
+			}
+			continue
 		}
 
 		parsedURL, err := url.Parse(imgPath)
@@ -207,7 +246,7 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 			ReleaseYear:        item.Film.ReleaseYear,
 			Adult:              item.Film.Adult,
 			PosterCustomisable: item.Film.PosterCustomisable,
-			PosterURL:          item.Film.Poster.Sizes[0].URL,
+			PosterURL:          posterUrl,
 			AdultPosterURL:     adultUrl,
 			CacheKey:           fmt.Sprintf("%s_%s", item.Film.ID, version), // underscore is important in key format
 			ImageInfo:          ImageInfo{Path: imgPath},
@@ -218,20 +257,34 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 }
 
 func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, error) {
-	// First we query Redis
+	// Entries with no poster have no image to derive colours from - pass them through untouched.
+	var entries, toLookup []Entry
+	for _, e := range *listEntries {
+		if e.MissingPoster {
+			entries = append(entries, e)
+			continue
+		}
+		toLookup = append(toLookup, e)
+	}
+
+	// Then we query Redis
 	keys := []string{}
-	for _, entry := range *listEntries {
+	for _, entry := range toLookup {
 		keys = append(keys, entry.CacheKey)
 	}
 
-	res, err := rc.GetBatch(keys)
-	if err != nil {
-		return nil, fmt.Errorf("failed to lookup keys in redis: %w", err)
+	res := map[string]redis.CacheResponse{}
+	if len(keys) > 0 {
+		var err error
+		res, err = rc.GetBatch(keys)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup keys in redis: %w", err)
+		}
 	}
 
 	// We pass through and append all cache hits
-	var entries, entriesToLoad []Entry
-	for _, e := range *listEntries {
+	var entriesToLoad []Entry
+	for _, e := range toLookup {
 		entry := e
 
 		// Append entries fetched from cache
@@ -508,6 +561,9 @@ func getDominantColors(k, method int, img image.Image) (*[]prominentcolor.ColorI
 // This function calculates each poster's ranking according to each sort method (see sortAlgorithms file)
 func assignListRankings(listEntries *[]Entry) (*[]Entry, error) {
 	for i, e := range *listEntries {
+		if e.MissingPoster {
+			continue
+		}
 		(*listEntries)[i].SortVals.Hue = AlgoHue(e.ImageInfo.Colors)
 		(*listEntries)[i].SortVals.Lum = AlgoLuminosity(e.ImageInfo.Colors)
 		(*listEntries)[i].SortVals.InverseStep_8 = AlgoInverseStep(e.ImageInfo.Colors, 8)

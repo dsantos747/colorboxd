@@ -3,11 +3,22 @@ import { ListContext, ListContextType, UserTokenContext, UserTokenContextType } 
 import { WriteSortedList } from '../actions/actions';
 import { Button } from './buttons';
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/16/solid';
-import { SortModeType, sorts } from '../lib/definitions';
+import { EntryWithImage, SortModeType, sorts } from '../lib/definitions';
 
 function calcIndex(i: number, startIndex: number, len: number, reverse: boolean) {
   const ind = reverse ? (len - i) % len : i;
   return (ind + startIndex) % len;
+}
+
+// Entries with no poster can't be placed on the colour spectrum - keep them out of the sortable
+// grid and always at the end of the array, in whatever order the comparator otherwise decides.
+function withMissingPostersLast(cmp: (a: EntryWithImage, b: EntryWithImage) => number) {
+  return (a: EntryWithImage, b: EntryWithImage) => {
+    if (a.missingPoster !== b.missingPoster) {
+      return a.missingPoster ? 1 : -1;
+    }
+    return cmp(a, b);
+  };
 }
 
 type Props = {
@@ -57,13 +68,17 @@ export default function ListPreview({ setError }: Props) {
     setCurrSort({ sortMode: currSort.sortMode, visible: !currSort.visible, reverse: false });
     setStartIndex(0);
     if (currSort.visible) {
-      list?.entries.sort((a, b) => {
-        return a.listPosition - b.listPosition;
-      });
+      list?.entries.sort(
+        withMissingPostersLast((a, b) => {
+          return a.listPosition - b.listPosition;
+        })
+      );
     } else {
-      list?.entries.sort((a, b) => {
-        return a.sorts[currSort.sortMode.id] - b.sorts[currSort.sortMode.id];
-      });
+      list?.entries.sort(
+        withMissingPostersLast((a, b) => {
+          return a.sorts[currSort.sortMode.id] - b.sorts[currSort.sortMode.id];
+        })
+      );
     }
   }, [currSort, list, setStartIndex]);
 
@@ -77,9 +92,11 @@ export default function ListPreview({ setError }: Props) {
       if (selectedMode) {
         setStartIndex(0);
         setCurrSort({ sortMode: selectedMode, visible: true, reverse: false });
-        list?.entries.sort((a, b) => {
-          return a.sorts[selectedMode.id] - b.sorts[selectedMode.id];
-        });
+        list?.entries.sort(
+          withMissingPostersLast((a, b) => {
+            return a.sorts[selectedMode.id] - b.sorts[selectedMode.id];
+          })
+        );
       }
     },
     [list]
@@ -90,6 +107,8 @@ export default function ListPreview({ setError }: Props) {
     setStartIndex(0);
     setCurrSort({ sortMode: sorts[0], visible: true, reverse: false });
   }, [list]);
+
+  const sortableEntries = list?.entries.filter((e) => !e.missingPoster) ?? [];
 
   return (
     <div className='mx-auto max-w-6xl'>
@@ -127,9 +146,16 @@ export default function ListPreview({ setError }: Props) {
         </form>
       </div>
 
+      {!!list && list.missingPosterCount > 0 && (
+        <p className='text-xs text-amber-400 my-2'>
+          {list.missingPosterCount} title{list.missingPosterCount > 1 ? 's are' : ' is'} missing a poster and can&apos;t be sorted by
+          colour - {list.missingPosterCount > 1 ? 'they' : 'it'} will be added to the end of the list when you save.
+        </p>
+      )}
+
       <div className='grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 overflow-y-auto customScrollbar max-h-[120vh] md:h-[60vh] my-4 mx-auto'>
-        {list?.entries.map((l, i) => {
-          const ind = calcIndex(i, startIndex, list.entries.length, currSort.reverse);
+        {sortableEntries.map((l, i) => {
+          const ind = calcIndex(i, startIndex, sortableEntries.length, currSort.reverse);
           return (
             <div key={l.entryId} className='m-1 text-center'>
               <button
@@ -137,7 +163,7 @@ export default function ListPreview({ setError }: Props) {
                 onClick={() => {
                   setStartIndex(ind);
                 }}>
-                <img src={list.entries[ind].posterUrl} alt={list.entries[ind].name} loading={ind > 5 ? 'lazy' : 'eager'} />
+                <img src={sortableEntries[ind].posterUrl} alt={sortableEntries[ind].name} loading={ind > 5 ? 'lazy' : 'eager'} />
               </button>
             </div>
           );

@@ -83,20 +83,36 @@ func prepareListUpdateRequest(list ListWithEntries, offset int, sortMethod strin
 	if err != nil {
 		return nil, err
 	}
-	slices.SortFunc(list.Entries, sortFunction)
 
-	n := len(list.Entries)
+	// Entries with no poster were excluded from sorting - always pin them to the end of the list,
+	// in their original relative order, regardless of the chosen sort method, offset or reverse.
+	var sortable, missingPoster []Entry
+	for _, e := range list.Entries {
+		if e.MissingPoster {
+			missingPoster = append(missingPoster, e)
+			continue
+		}
+		sortable = append(sortable, e)
+	}
+	slices.SortFunc(sortable, sortFunction)
+	slices.SortFunc(missingPoster, func(a, b Entry) int { return a.ListPosition - b.ListPosition })
+
+	m := len(sortable)
 	currentPositions := make(map[string]int)
 	var finishSlice []FilmTargetPosition
 
-	for i, entry := range list.Entries {
-		endPos := ((i + n) - offset) % n
+	for i, entry := range sortable {
+		endPos := ((i + m) - offset) % m
 		if reverse {
-			endPos = (n - endPos) % n
+			endPos = (m - endPos) % m
 		}
 
 		currentPositions[entry.FilmID] = entry.ListPosition
 		finishSlice = append(finishSlice, FilmTargetPosition{entry.FilmID, endPos})
+	}
+	for i, entry := range missingPoster {
+		currentPositions[entry.FilmID] = entry.ListPosition
+		finishSlice = append(finishSlice, FilmTargetPosition{entry.FilmID, m + i})
 	}
 
 	slices.SortFunc(finishSlice, func(a, b FilmTargetPosition) int {
