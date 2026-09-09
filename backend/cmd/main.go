@@ -7,9 +7,20 @@ import (
 	"time"
 
 	colorboxd "github.com/dsantos747/letterboxd_hue_sort/backend"
+	"github.com/dsantos747/letterboxd_hue_sort/backend/redis"
 )
 
 func main() {
+	if err := colorboxd.LoadEnv(); err != nil {
+		log.Printf("Could not load environment variables from .env file: %v", err)
+	}
+
+	rc, err := redis.New(os.Getenv("REDIS_URL"))
+	if err != nil {
+		log.Fatalf("Could not connect to redis: %v", err)
+	}
+	colorboxd.SetRedisClient(rc)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/auth", colorboxd.AuthUser)
 	mux.HandleFunc("GET /api/v1/lists", colorboxd.GetLists)

@@ -13,7 +13,8 @@ import (
 func TestGetSet(t *testing.T) {
 	assert := assert.New(t)
 	s := miniredis.RunT(t)
-	rc := New(fmt.Sprintf("redis://%s", s.Addr()))
+	rc, err := New(fmt.Sprintf("redis://%s", s.Addr()))
+	assert.NoError(err)
 
 	testCases := []struct {
 		name       string
@@ -126,7 +127,8 @@ func TestGetSet(t *testing.T) {
 func TestGetSetBatch(t *testing.T) {
 	assert := assert.New(t)
 	s := miniredis.RunT(t)
-	rc := New(fmt.Sprintf("redis://%s", s.Addr()))
+	rc, err := New(fmt.Sprintf("redis://%s", s.Addr()))
+	assert.NoError(err)
 
 	testCases := []struct {
 		name      string

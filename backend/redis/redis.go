@@ -23,19 +23,25 @@ type CacheResponse struct {
 	Hit    bool
 }
 
-func New(url string) Redis {
-	var client *redis.Client
+func New(url string) (Redis, error) {
 	opt, err := redis.ParseURL(url)
+	if err != nil {
+		return Redis{}, fmt.Errorf("failed to parse redis url: %w", err)
+	}
 
 	opt.MaxActiveConns = 10 // free tier offers 30, so this allows 3 users to use the app concurrently
 
-	if err == nil {
-		client = redis.NewClient(opt)
+	client := redis.NewClient(opt)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := client.Ping(ctx).Err(); err != nil {
+		return Redis{}, fmt.Errorf("failed to connect to redis: %w", err)
 	}
 
 	return Redis{
 		client: client,
-	}
+	}, nil
 }
 
 func (r Redis) GetBatch(keys []string) (map[string]CacheResponse, error) {

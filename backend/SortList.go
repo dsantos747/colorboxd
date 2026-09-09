@@ -29,6 +29,11 @@ import (
 
 var rc redis.Redis
 
+// SetRedisClient inits the redis client in this package. Must be called on startup.
+func SetRedisClient(client redis.Redis) {
+	rc = client
+}
+
 // SortListById computes the color information of each movie poster in
 // a user's Letterboxd list and consequently computes the different sort rankings.
 func SortListById(w http.ResponseWriter, r *http.Request) {
@@ -43,8 +48,6 @@ func SortListById(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
 		return
 	}
-
-	rc = redis.New(os.Getenv("REDIS_URL"))
 
 	// Set necessary headers for CORS and cache policy
 	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("BASE_URL"))
