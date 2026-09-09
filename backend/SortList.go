@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"slices"
-	"strings"
 	"sync"
 
 	// Accepted image formats in loadImage
@@ -23,7 +22,6 @@ import (
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/disintegration/imaging"
 	"github.com/lucasb-eyer/go-colorful"
-	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -246,11 +244,9 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 		entriesToLoad = append(entriesToLoad, entry)
 	}
 
-	// Then we go through the process of fetch images that we are missing
+	// Then we go through the process of fetch images that we are missing.
 	errGroup, ctx := errgroup.WithContext(ctx)
-	rl := ratelimit.New(500)
 	mu := sync.Mutex{}
-	rlCtx, rlCancel := context.WithCancel(ctx) // This is a hack to cancel all goroutines if we get rate-limited when loading images
 
 	var c_keys []string
 	var c_colors [][]string
@@ -258,20 +254,14 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 	for _, e := range entriesToLoad {
 		// Process any entries not available in cache
 		errGroup.Go(func() error {
-			rl.Take()
-
-			// This block cancels all goroutines if we're getting rate-limited
 			select {
-			case <-rlCtx.Done():
-				return rlCtx.Err()
+			case <-ctx.Done():
+				return ctx.Err()
 			default:
 			}
 
 			img, err := loadImage(e.ImageInfo.Path)
 			if err != nil {
-				if strings.Contains(err.Error(), "error fetching image from letterboxd servers") {
-					rlCancel()
-				}
 				return fmt.Errorf("error loading image %s: %v", e.ImageInfo.Path, err)
 			}
 
