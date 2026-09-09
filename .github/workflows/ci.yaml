@@ -129,11 +129,10 @@ jobs:
       - name: Build and push Docker image
         run: |
           IMAGE=europe-southwest1-docker.pkg.dev/colorboxd/colorboxd-repo/colorboxd
-          TAG=${GITHUB_SHA::7}
           docker build --platform=linux/amd64 \
             --build-arg REACT_APP_LBOXD_AUTH_URL="${{ secrets.REACT_APP_LBOXD_AUTH_URL }}" \
             --build-arg REACT_APP_BACKEND_URL="${{ secrets.REACT_APP_BACKEND_URL }}" \
             --build-arg REACT_APP_BASE_URL="${{ secrets.REACT_APP_BASE_URL }}" \
-            -t $IMAGE:$TAG \
+            -t $IMAGE:latest \
             ./frontend
-          docker push $IMAGE:$TAG
+          docker push $IMAGE:latest
