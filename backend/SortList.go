@@ -18,7 +18,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 
-	"github.com/dsantos747/letterboxd_hue_sort/backend/redis"
+	"github.com/dsantos747/letterboxd_hue_sort/backend/postgres"
 
 	prominentcolor "github.com/EdlinOrg/prominentcolor"
 	"github.com/disintegration/imaging"
@@ -27,10 +27,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var rc redis.Redis
+var rc postgres.Postgres
 
-// SetRedisClient inits the redis client in this package. Must be called on startup.
-func SetRedisClient(client redis.Redis) {
+// SetCacheClient inits the postgres cache client in this package. Must be called on startup.
+func SetCacheClient(client postgres.Postgres) {
 	rc = client
 }
 
@@ -220,7 +220,7 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 }
 
 func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, error) {
-	// First we query Redis
+	// First we query the cache
 	keys := []string{}
 	for _, entry := range *listEntries {
 		keys = append(keys, entry.CacheKey)
@@ -228,7 +228,7 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 
 	res, err := rc.GetBatch(keys)
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup keys in redis: %w", err)
+		return nil, fmt.Errorf("failed to lookup keys in cache: %w", err)
 	}
 
 	// We pass through and append all cache hits
@@ -324,7 +324,7 @@ func processListImagesV2(listEntries *[]Entry) (*[]Entry, error) {
 
 			res, err := rc.Get(e.CacheKey)
 			if err != nil {
-				return fmt.Errorf("failed to fetch from redis: %w", err)
+				return fmt.Errorf("failed to fetch from cache: %w", err)
 			}
 
 			if res.Hit {
@@ -402,12 +402,12 @@ func processListImages(listEntries *[]Entry) (*[]Entry, error) {
 // extracts the colour information, then returns the populated Entry to colorChan
 func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, errChan chan<- error) {
 	for image := range imageChan {
-		// Here need to first check redis cache for image info
+		// Here need to first check the cache for image info
 		entry := &image.info
 
 		res, err := rc.Get(image.info.CacheKey)
 		if err != nil {
-			errChan <- fmt.Errorf("failed to fetch from redis: %w", err)
+			errChan <- fmt.Errorf("failed to fetch from cache: %w", err)
 			continue
 		}
 
@@ -431,7 +431,7 @@ func worker(imageChan <-chan Image, colorChan chan<- Entry, wg *sync.WaitGroup, 
 				continue
 			}
 
-			// Set to redis
+			// Set to cache
 			// todo, NEED to ensure that the key we are using is the id of the film poster - not the id of the film itself
 			// The letterboxd api has a posterPickerUrl, which is to do with the custom poster chosen in a list. Could we use this?
 			// Maybe, check if that field is empty or not when the poster is standard, that could be useful

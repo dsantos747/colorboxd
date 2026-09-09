@@ -4,26 +4,24 @@ go 1.24.3
 
 require (
 	github.com/EdlinOrg/prominentcolor v1.0.0
-	github.com/alicebob/miniredis/v2 v2.34.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/go-rod/rod v0.116.2
+	github.com/jackc/pgx/v5 v5.7.4
 	github.com/joho/godotenv v1.5.1
 	github.com/lucasb-eyer/go-colorful v1.2.0
-	github.com/redis/go-redis/v9 v9.6.1
-	github.com/stretchr/testify v1.10.0
+	github.com/pashagolub/pgxmock/v4 v4.9.0
+	github.com/stretchr/testify v1.11.1
 	go.uber.org/ratelimit v0.3.1
-	golang.org/x/sync v0.8.0
+	golang.org/x/sync v0.17.0
 )
 
 require (
-	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/kr/text v0.2.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
-	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/oliamb/cutter v0.2.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/ysmood/fetchup v0.2.4 // indirect
@@ -31,8 +29,8 @@ require (
 	github.com/ysmood/got v0.40.0 // indirect
 	github.com/ysmood/gson v0.7.3 // indirect
 	github.com/ysmood/leakless v0.9.0 // indirect
-	github.com/yuin/gopher-lua v1.1.1 // indirect
+	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/image v0.20.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
+	golang.org/x/text v0.29.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
