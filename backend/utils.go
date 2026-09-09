@@ -103,7 +103,7 @@ func MakeHTTPRequest(method, endpoint string, body io.Reader, headers map[string
 		}
 
 		if response.StatusCode == http.StatusTooManyRequests {
-			retryAfter = parseRetryAfter(response.Header.Get("Retry-After"))
+			retryAfter = min(parseRetryAfter(response.Header.Get("Retry-After")), retryMaxDelay)
 			slog.Warn("letterboxd rate limit hit", "endpoint", endpoint, "attempt", attempt+1, "retryAfter", retryAfter)
 			lastErr = fmt.Errorf("%s", response.Status)
 			response.Body.Close()
@@ -112,7 +112,7 @@ func MakeHTTPRequest(method, endpoint string, body io.Reader, headers map[string
 
 		if response.StatusCode >= 500 {
 			lastErr = fmt.Errorf("%s", response.Status)
-			retryAfter = parseRetryAfter(response.Header.Get("Retry-After"))
+			retryAfter = min(parseRetryAfter(response.Header.Get("Retry-After")), retryMaxDelay)
 			response.Body.Close()
 			continue
 		}
