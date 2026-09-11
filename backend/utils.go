@@ -49,7 +49,7 @@ func lboxdRateLimit() int {
 			return n
 		}
 	}
-	return 200
+	return 100
 }
 
 const (
