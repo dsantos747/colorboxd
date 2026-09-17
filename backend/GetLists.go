@@ -3,6 +3,7 @@ package colorboxd
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 )
@@ -14,7 +15,7 @@ func GetLists(w http.ResponseWriter, r *http.Request) {
 	// Read env variables
 	err = LoadEnv()
 	if err != nil {
-		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		slog.Warn("could not load environment variables from .env file", "err", err)
 		return
 	}
 

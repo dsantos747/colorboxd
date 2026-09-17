@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -12,12 +12,13 @@ import (
 
 func main() {
 	if err := colorboxd.LoadEnv(); err != nil {
-		log.Printf("Could not load environment variables from .env file: %v", err)
+		slog.Warn("could not load environment variables from .env file", "err", err)
 	}
 
 	rc, err := redis.New(os.Getenv("REDIS_URL"))
 	if err != nil {
-		log.Fatalf("Could not connect to redis: %v", err)
+		slog.Error("could not connect to redis", "err", err)
+		os.Exit(1)
 	}
 	colorboxd.SetRedisClient(rc)
 
@@ -41,8 +42,9 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	log.Printf("Starting server on :%s", port)
+	slog.Info("starting server", "port", port)
 	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		slog.Error("server failed", "err", err)
+		os.Exit(1)
 	}
 }
