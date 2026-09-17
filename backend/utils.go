@@ -21,7 +21,7 @@ func LoadEnv() error {
 	if os.Getenv("ENVIRONMENT") == "" {
 		err := godotenv.Load()
 		if err != nil {
-			fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+			slog.Warn("could not load environment variables from .env file", "err", err)
 			return err
 		}
 	}

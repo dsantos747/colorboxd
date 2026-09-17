@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"reflect"
@@ -18,7 +19,7 @@ func WriteList(w http.ResponseWriter, r *http.Request) {
 	// Read env variables
 	err = LoadEnv()
 	if err != nil {
-		fmt.Printf("Could not load environment variables from .env file: %v\n", err)
+		slog.Warn("could not load environment variables from .env file", "err", err)
 		return
 	}
 
@@ -177,7 +178,7 @@ func writeListSorting(token, id string, listUpdateRequest ListUpdateRequest) (*[
 			message = append(message, fmt.Sprintf("%s: %s - %s", m.Type, m.Code, m.Title))
 		}
 		errorStr := "The letterboxd API responded with the following errors: " + strings.Join(message, "; ")
-		return &message, fmt.Errorf(errorStr)
+		return &message, fmt.Errorf("%s", errorStr)
 	}
 
 	message = []string{"List updated successfully"}

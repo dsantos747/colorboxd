@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -67,7 +68,7 @@ func (r Redis) GetBatch(keys []string) (map[string]CacheResponse, error) {
 
 		colors, counts, err := r.parseRedisOut(vals)
 		if err != nil {
-			fmt.Println("error parsing output from redis: %w", err)
+			slog.Warn("error parsing output from redis", "err", err)
 			res[key] = CacheResponse{
 				Hit: false,
 			}
