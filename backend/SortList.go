@@ -144,6 +144,10 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 		return nil, fmt.Errorf("failed to get list length: %w", err)
 	}
 
+	// Cap concurrent page fetches so a big list doesn't fire dozens of requests
+	// at Letterboxd simultaneously - see the same reasoning in processListImagesV3.
+	const maxConcurrentPageFetches = 10
+	sem := make(chan struct{}, maxConcurrentPageFetches)
 	errGroup, ctx := errgroup.WithContext(ctx)
 	mu := sync.Mutex{}
 
@@ -157,6 +161,13 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 		url := endpoint + query
 
 		errGroup.Go(func() error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			}
+
 			response, err := MakeHTTPRequest(method, url, nil, headers)
 			if err != nil {
 				return fmt.Errorf("error making HTTP request: %v", err)
@@ -298,6 +309,15 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 	}
 
 	// Then we go through the process of fetch images that we are missing.
+	// Concurrency is capped so a big list doesn't fire hundreds of simultaneous
+	// requests at Letterboxd (which just drives more rate-limiting/timeouts).
+	// A failure on one poster is isolated to that entry (it's marked as
+	// MissingPoster, same as when Letterboxd has no image for it) rather than
+	// aborting the whole batch - previously a single failed fetch canceled the
+	// shared errgroup context, causing every other in-flight/pending entry to
+	// bail out uncached and the whole request to error out.
+	const maxConcurrentFetches = 20
+	sem := make(chan struct{}, maxConcurrentFetches)
 	errGroup, ctx := errgroup.WithContext(ctx)
 	mu := sync.Mutex{}
 
@@ -305,22 +325,34 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 	var c_colors [][]string
 	var c_counts [][]int
 	for _, e := range entriesToLoad {
-		// Process any entries not available in cache
 		errGroup.Go(func() error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			default:
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
 			}
 
 			img, err := loadImage(e.ImageInfo.Path)
 			if err != nil {
-				return fmt.Errorf("error loading image %s: %v", e.ImageInfo.Path, err)
+				slog.Warn("failed to load poster image, skipping entry", "name", e.Name, "err", err)
+				entry := e
+				entry.MissingPoster = true
+				mu.Lock()
+				entries = append(entries, entry)
+				mu.Unlock()
+				return nil
 			}
 
 			entry, err := getImageInfo(e, img)
 			if err != nil {
-				return fmt.Errorf("error getting image color info for poster for %s: %v", entry.Name, err)
+				slog.Warn("failed to extract color info from poster, skipping entry", "name", e.Name, "err", err)
+				fallback := e
+				fallback.MissingPoster = true
+				mu.Lock()
+				entries = append(entries, fallback)
+				mu.Unlock()
+				return nil
 			}
 
 			colors, counts := []string{}, []int{}
@@ -342,12 +374,14 @@ func processListImagesV3(ctx context.Context, listEntries *[]Entry) (*[]Entry, e
 	}
 
 	egErr := errGroup.Wait()
-	if len(keys) > 0 { // Even if we fail to process all, set to cache what we did manage
+	if len(c_keys) > 0 {
 		go func() {
-			rc.SetBatch(c_keys, c_colors, c_counts)
+			if err := rc.SetBatch(c_keys, c_colors, c_counts); err != nil {
+				slog.Error("failed to batch-set posters to redis cache", "err", err)
+			}
 		}()
 	}
-	if egErr != nil { // Then handle the error
+	if egErr != nil { // Only returned for parent-context cancellation now; per-entry failures no longer reach here.
 		return nil, egErr
 	}
 
