@@ -12,6 +12,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"time"
 
 	// Accepted image formats in loadImage
 	_ "image/jpeg"
@@ -144,9 +145,9 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 		return nil, fmt.Errorf("failed to get list length: %w", err)
 	}
 
-	// Cap concurrent page fetches so a big list doesn't fire dozens of requests
-	// at Letterboxd simultaneously - see the same reasoning in processListImagesV3.
-	const maxConcurrentPageFetches = 10
+	// The /list/{id}/entries endpoint is far more aggressively rate-limited by Letterboxd than other endpoints.
+	const maxConcurrentPageFetches = 3
+	const pageFetchStagger = 150 * time.Millisecond
 	sem := make(chan struct{}, maxConcurrentPageFetches)
 	errGroup, ctx := errgroup.WithContext(ctx)
 	mu := sync.Mutex{}
@@ -154,13 +155,28 @@ func getListEntries(ctx context.Context, token, id string) (*[]Entry, error) {
 	perPage := 100
 	curr := 0
 	done := false
+	pageIndex := 0
 
 	// Loop until no "next" pagination cursor is present in response
 	for filmCount > 0 {
 		query := fmt.Sprintf("?cursor=%s&perPage=%d", fmt.Sprintf("start=%d", curr), perPage)
 		url := endpoint + query
 
+		// Only stagger the initial burst of concurrent requests; once the pool is
+		// warm, the semaphore plus real request latency already spaces things out.
+		var delay time.Duration
+		if pageIndex < maxConcurrentPageFetches {
+			delay = time.Duration(pageIndex) * pageFetchStagger
+		}
+		pageIndex++
+
 		errGroup.Go(func() error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+			}
+
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
